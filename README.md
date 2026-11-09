@@ -1,11 +1,238 @@
-# dsh-lifeboard · 人生看板
+# dsh-lifeboard
 
-> 把散落在 markdown 里的日常，折成一块只读看板：**健康 · 任务 · 资产 · 情绪 · 书架**。
-> 只读你已有的文件，不建数据库、不联云、财务卡默认不读。
+> Fold the everyday traces you already keep in markdown — **health · tasks · assets · mood · bookshelf** — into one read-only dashboard.
+> No new database, no cloud, and the finance card stays unread until you ask for it.
 
 [![npm](https://img.shields.io/npm/v/dsh-lifeboard.svg)](https://www.npmjs.com/package/dsh-lifeboard)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![dsh](https://img.shields.io/badge/dsh-%E2%89%A50.2.1--rc.2-4D6BFE.svg)](https://www.npmjs.com/package/@deepseek-ai/dsh)
+
+**English** · [中文](#中文)
+
+![dsh-lifeboard](docs/hero.jpg)
+
+> The banner above is an interface illustration rendered from the built-in demo data. The screenshot below is the real plugin in the DSH sidebar.
+
+![Dashboard overview](docs/screenshot-board.png)
+
+> Screenshot uses built-in demo data (a fictional person), not real records.
+
+---
+
+## What it does
+
+You log your weight in a daily note, your todos in a TODO file, your assets in a spreadsheet — and none of it ever becomes something you can read at a glance.
+
+This plugin adds nothing new. It **reads** the markdown and TSV you already write, folds them into five cards, and docks them in the DSH sidebar. It does not modify your files; the only two write actions are "tick a task" and "check in a mood", and both require a click from you.
+
+**How it differs**
+
+| | Typical plugins | This one |
+|:--|:--|:--|
+| Data source | You migrate data into their store | Reads the markdown you **already write** |
+| Scope | One domain (tasks / usage / health) | Five domains in one panel |
+| Privacy | Everything read by default | Assets and spending stay **unread** until you click 👁 |
+| Onboarding | Configure first, see later | Ships with demo data — install and look |
+
+---
+
+## The five cards
+
+| Card | Reads | Shows |
+|:--|:--|:--|
+| 🩺 **Health** | The health table plus sleep/exercise sections of each daily note | Weight with delta, 7-day sparkline, body fat / visceral fat / bone mineral / heart rate / sleep / exercise, protein progress ring |
+| 📋 **Tasks** | `- [ ]` lines in your TODO file | Sorted by due date, overdue in red, `#tag` split into work/life; tick or postpone inline |
+| 💼 **Assets** | Asset snapshot TSV | SVG donut by category, top-5 holdings, this month's spending |
+| 🧠 **Mood · Exercise** | Mood and exercise sections of the log | 7-day dots, streak, latest mood; four one-click check-in buttons |
+| 📚 **Bookshelf** | `.md` files under the bookshelf folder | Covers; click a book to pull a random excerpt |
+
+![Bookshelf · Mood · Assets](docs/screenshot-assets.png)
+
+---
+
+## Quick start
+
+```bash
+dsh plugin --profile <your-profile> add dsh-lifeboard
+```
+
+Or use **Plugins → Add plugin** and enter `dsh-lifeboard`. Restart DSH; a "Lifeboard" entry appears in the sidebar.
+
+**No data yet?** Open **Settings → Lifeboard** and enable **Demo preview**. The plugin generates a fictional local dataset (7 days of weight/meals/mood/exercise, 5 todos, 5 assets, 6 books) under `~/.dsh/storages/dsh-lifeboard/demo-vault/`, fully isolated from your real folders.
+
+---
+
+## Configuration
+
+All optional. Edit in **Settings → Lifeboard**, or set defaults in your profile's `cordis.patch.yml`:
+
+```yaml
+- id: lifeboard
+  name: dsh-lifeboard
+  config:
+    vaultRoot: ""                              # empty = auto-detect
+    logDir: "_assistant/life/log"              # daily notes, YYYY-MM-DD.md
+    todoFile: "_assistant/TODO.md"
+    assetsFile: "_assistant/life/private/资产快照.tsv"
+    financeFile: "_assistant/life/private/消费流水.tsv"
+    shelfDir: "_assistant/notes/书架"
+    coverDir: "_assistant/life/private/书/封面"
+    excerptDir: "_assistant/life/private/书/抽取"
+    windowDays: 7                              # stats window (days)
+    proteinTarget: 130                         # protein goal, g/day
+    cards:                                     # set false to hide a card
+      health: true
+      tasks: true
+      assets: true
+      mood: true
+      shelf: true
+    demoMode: false                            # demo data preview
+    demoCoverDir: ""                           # local covers, never bundled
+    einkEnable: false                          # read-only Kindle task page
+    einkPort: 8788
+    einkKindleDir: ""                          # Kindle mount point
+```
+
+Paths are relative to `vaultRoot`. **A missing file shows "no data" on that card — it never errors or blanks the panel.**
+
+---
+
+## Data formats
+
+The parser expects fixed formats. A mismatch shows "no data" — that is a formatting issue, not a crash.
+
+**Daily note** `logDir/YYYY-MM-DD.md`
+
+```markdown
+## 健康
+
+| 指标 | 数值 |
+|:--|:--|
+| 体重 | **70.0 kg** |
+| 体脂率 | **22.0%** |
+| 内脏脂肪 | **9 级** |
+| 骨盐率 | **4.0%** |
+| 心率 | **70** |
+
+## 睡眠
+
+- 睡了 7.5 小时
+
+## 情绪
+
+- **正常**
+
+## 运动
+
+- 户外步行 2.0 km
+
+## 饮食
+
+- 早餐合计：蛋白 ~26g · 热量 ~330 kcal
+- 今日累计（日终）：蛋白 **~130g**
+```
+
+Protein accepts three shapes: `今日累计：蛋白 ~130g`, `全天蛋白 ~130g`, or a per-meal `合计：蛋白 ~30g` line (summed).
+
+**Todos** `todoFile`
+
+```markdown
+- [ ] 整理季度复盘 | 截止：2026-11-20 | #工作
+- [x] 续费服务器 | 完成：2026-11-09
+```
+
+**Assets** `assetsFile` (TSV, amounts in 10k CNY)
+
+```text
+日期	类别	名称	金额万
+2026-11-09	基金	全球股票指数	32.0
+2026-11-09	现金	货币基金	8.0
+```
+
+**Bookshelf** `shelfDir/<title>.md`, metadata on the second line, cover at `coverDir/<title>.jpg`:
+
+```markdown
+# 系统之美
+
+> 作者：德内拉·梅多斯 · 分类：思维类 · 级别：原文级 · 加入：2026-10-20
+
+## 核心框架
+- 系统的三个要件：要素、连接、目标。
+```
+
+*(The Chinese field labels above are literal — the parser matches them as-is.)*
+
+---
+
+## About the two scanner warnings
+
+dsh.so reports two warnings. Both are intentional, not vulnerabilities:
+
+| Warning | What it is | Boundary |
+|:--|:--|:--|
+| `Child process module usage` (`spawn('open', [abs])`) | Clicking "source" on a card opens that file with the system default app | Path must resolve inside the configured vault (no traversal); **only** `.md/.markdown/.tsv/.json/.txt/.csv`; files only, never directories; ≤5 MB; argument array, never a shell |
+| Writing under `_assistant/.backup/` | Backs up the TODO file before ticking or postponing a task | Writes only `.bak` files next to the TODO file, keeps the last 5, never deletes |
+
+The plugin makes no network requests. It writes in exactly three places, and each needs a click from you (tick, postpone, mood check-in).
+
+## Privacy
+
+- **Nothing leaves the machine**: the plugin only registers local HTTP routes (`/api/lifeboard/*`) and contacts no third-party service
+- **Sensitive cards are opt-in**: assets and spending are requested from the host only after you click 👁, and rendered locally
+- **`private/` is never scanned**: nothing is read unless you configure the path
+- **No data in the package**: the tarball contains code, generated demo covers, and text only
+
+---
+
+## FAQ
+
+**The cards don't show up after installing.**
+Check the paths in **Settings → Lifeboard**, then toggle **Demo preview** once. If the demo renders, the plugin works and the issue is your paths.
+
+**The health numbers look wrong.**
+Make sure the health section is a markdown table and the row labels are exactly `体重` / `体脂率` / `内脏脂肪` / `骨盐率` / `心率`. For protein, check the `今日累计` line or the per-meal `合计` lines.
+
+**The Kindle page won't open.**
+It is off by default. Set `einkEnable: true` plus a mount point and **restart**. Then open `http://<lan-ip>:8788/`; if `~/.dsh/eink-token` exists, append `?k=<token>`.
+
+**Do settings need a restart?**
+Paths and card toggles apply immediately. The Kindle service toggle and port require a restart (the server binds on startup only).
+
+**Does it upload my data?**
+No. There are no outbound requests, and file reads stay inside the folders you configured.
+
+---
+
+## Development
+
+```bash
+git clone https://github.com/leotier196/dsh-lifeboard.git
+cd dsh-lifeboard
+node test/smoke.mjs     # no DSH runtime needed: fake ctx + fake vault, 23 assertions
+```
+
+Coverage: route registration, health/protein parsing, task counts, bookshelf, sensitive cards unread by default, `include:finance` gating, asset proportions, settings read/write, **apply-on-save**, missing-path degradation, empty vault, demo mode.
+
+---
+
+## Compatibility
+
+- Tested on `dsh 0.2.1-rc.2` – `0.2.2-rc.1`
+- Depends on two host capabilities: `connection.fetch.register` (local routes) and client `slots` (sidebar, main panel, settings section)
+- If cards disappear after a kernel upgrade, check the DSH log for `lifeboard: ... route unavailable`
+
+---
+
+## License
+
+MIT. Demo covers are programmatically generated graphics and contain no third-party cover art.
+
+---
+
+<h2 id="中文">中文</h2>
+
+> 把散落在 markdown 里的日常，折成一块只读看板：**健康 · 任务 · 资产 · 情绪 · 书架**。
+> 只读你已有的文件，不建数据库、不联云，财务卡默认不读。
 
 ![dsh-lifeboard](docs/hero.jpg)
 
@@ -17,7 +244,7 @@
 
 ---
 
-## 它解决什么
+### 它解决什么
 
 你每天在日志里记体重、在 TODO 里记待办、在表格里记资产——这些数据从来不会自己变成「一眼能看懂」的东西。
 
@@ -34,7 +261,7 @@
 
 ---
 
-## 五张卡
+### 五张卡
 
 | 卡 | 读什么 | 展示 |
 |:--|:--|:--|
@@ -48,7 +275,7 @@
 
 ---
 
-## 快速开始
+### 快速开始
 
 ```bash
 dsh plugin --profile <你的 profile> add dsh-lifeboard
@@ -60,7 +287,7 @@ dsh plugin --profile <你的 profile> add dsh-lifeboard
 
 ---
 
-## 配置
+### 配置
 
 全部可选，在 **设置 → 人生看板** 里改，或写进 profile 的 `cordis.patch.yml`：
 
@@ -95,7 +322,7 @@ dsh plugin --profile <你的 profile> add dsh-lifeboard
 
 ---
 
-## 数据格式
+### 数据格式
 
 插件按固定格式解析，写歪了就是「暂无数据」——不是坏了，是格式没对上。
 
@@ -160,7 +387,7 @@ dsh plugin --profile <你的 profile> add dsh-lifeboard
 
 ---
 
-## 关于安全扫描的两个 Warning
+### 关于安全扫描的两个 Warning
 
 dsh.so 的扫描器会报两条 Warning，都是**设计如此**，不是漏洞：
 
@@ -171,7 +398,7 @@ dsh.so 的扫描器会报两条 Warning，都是**设计如此**，不是漏洞�
 
 插件没有任何网络请求；写操作只有三个，且都要你在界面上手点（勾任务、延期、情绪打卡）。
 
-## 隐私
+### 隐私
 
 - **数据不出本机**：插件只注册本机 HTTP 路由（`/api/lifeboard/*`），不请求任何第三方服务
 - **敏感卡默认不读**：资产与支出要点 👁 才向宿主请求，且只在本机渲染
@@ -180,7 +407,7 @@ dsh.so 的扫描器会报两条 Warning，都是**设计如此**，不是漏洞�
 
 ---
 
-## 常见问题
+### 常见问题
 
 **Q：装上看不到卡片？**
 A：先看 **设置 → 人生看板** 里的路径对不对，再勾一次「示例数据预览」——示例能显示说明插件正常，问题在路径。
@@ -199,7 +426,7 @@ A：不会。插件没有外发请求，读文件也只在你配置的目录里�
 
 ---
 
-## 开发
+### 开发
 
 ```bash
 git clone https://github.com/leotier196/dsh-lifeboard.git
@@ -211,7 +438,7 @@ node test/smoke.mjs     # 不依赖 DSH 运行时：假 ctx + 假 vault，跑 23
 
 ---
 
-## 兼容性
+### 兼容性
 
 - 已测：`dsh 0.2.1-rc.2` ~ `0.2.2-rc.1`
 - 依赖宿主两个能力：`connection.fetch.register`（本机路由）、客户端 `slots`（侧边栏 + 主面板 + 设置小节）
@@ -219,6 +446,6 @@ node test/smoke.mjs     # 不依赖 DSH 运行时：假 ctx + 假 vault，跑 23
 
 ---
 
-## License
+### License
 
 MIT · 示例封面为程序生成的图形，不含任何第三方封面素材。
