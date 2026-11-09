@@ -1,0 +1,5 @@
+# 人生看板 bundle：宿主半读 vault 折叠统计，客户端半渲染侧边栏入口 + 主面板
+- insert:
+    - id: lifeboard
+      name: dsh-lifeboard
+      config: {}

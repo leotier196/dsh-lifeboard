@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Life Board",
+    "description": "Life-section micro stats (health & tasks, M1) in a sidebar panel; read-only over vault files."
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "name": "dsh-lifeboard",
+  "version": "1.0.1",
+  "private": false,
+  "type": "module",
+  "description": "人生看板 · 把 markdown 日志/TODO/资产表折叠成一块只读面板：健康、任务、资产、情绪、书架五张卡；财务卡默认不读，数据不出本机",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "demo-data.mjs",
+    "demo-covers/*.jpg",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    },
+    "engines": {
+      "dsh": ">=0.2.1-rc.2"
+    }
+  },
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "lifeboard",
+    "看板",
+    "dashboard",
+    "markdown",
+    "health",
+    "todo"
+  ],
+  "scripts": {
+    "test": "node test/smoke.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/www945601002ktl-del/dsh-lifeboard.git"
+  },
+  "homepage": "https://github.com/www945601002ktl-del/dsh-lifeboard#readme",
+  "bugs": {
+    "url": "https://github.com/www945601002ktl-del/dsh-lifeboard/issues"
+  },
+  "author": "leotier196"
+}
