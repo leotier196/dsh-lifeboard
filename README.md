@@ -187,7 +187,7 @@ A：不会。插件没有外发请求，读文件也只在你配置的目录里�
 ## 开发
 
 ```bash
-git clone https://github.com/www945601002ktl-del/dsh-lifeboard.git
+git clone https://github.com/leotier196/dsh-lifeboard.git
 cd dsh-lifeboard
 node test/smoke.mjs     # 不依赖 DSH 运行时：假 ctx + 假 vault，跑 23 项断言
 ```
