@@ -7,8 +7,6 @@
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![dsh](https://img.shields.io/badge/dsh-%E2%89%A50.2.1--rc.2-4D6BFE.svg)](https://www.npmjs.com/package/@deepseek-ai/dsh)
 
-![看板总览](docs/screenshot-board.png)
-
 ---
 
 ## 它解决什么
@@ -37,8 +35,6 @@
 | 💼 **资产** | 资产快照 TSV | SVG 环形饼图（按类别占比）+ top5 持仓 + 当月支出 |
 | 🧠 **情绪·运动** | 日志的「情绪」「运动」段 | 7 天打卡点、连续天数、最新情绪；四个按钮一键打卡 |
 | 📚 **书架** | 书架目录下的 `.md` | 书封、点开随机摘一句 |
-
-![资产卡](docs/screenshot-assets.png)
 
 ---
 
