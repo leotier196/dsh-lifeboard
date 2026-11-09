@@ -156,6 +156,17 @@ dsh plugin --profile <你的 profile> add dsh-lifeboard
 
 ---
 
+## 关于安全扫描的两个 Warning
+
+dsh.so 的扫描器会报两条 Warning，都是**设计如此**，不是漏洞：
+
+| Warning | 是什么 | 边界 |
+|:--|:--|:--|
+| `Child process module usage`（`spawn('open', [abs])`） | 点卡片上的「源」跳转时，用系统默认程序打开对应文件 | 路径必须落在配置的 vault 内（防穿越）；**只允许** `.md/.markdown/.tsv/.json/.txt/.csv`；只开文件不开目录；单文件 ≤5 MB；参数数组形式，不经 shell |
+| 写文件到 `_assistant/.backup/` | 任务勾选/延期前先备份 TODO | 只在 TODO 同目录下写 `.bak`，保留最近 5 份；不做删除 |
+
+插件没有任何网络请求；写操作只有三个，且都要你在界面上手点（勾任务、延期、情绪打卡）。
+
 ## 隐私
 
 - **数据不出本机**：插件只注册本机 HTTP 路由（`/api/lifeboard/*`），不请求任何第三方服务

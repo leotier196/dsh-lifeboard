@@ -1160,8 +1160,16 @@ export async function apply(ctx, config) {
     if (abs !== rootAbs && !abs.startsWith(rootAbs + path.sep)) {
       return json({ ok: false, error: { code: 'lifeboard/outside-vault' } }, 400)
     }
+    // 安全边界（dsh.so 扫描 Warning 项）：只允许在 vault 内、且仅限文本类文件，
+    // 用系统 `open` 交给默认程序；参数为数组形式，不经 shell，不存在命令注入。
+    const ALLOWED_EXT = ['.md', '.markdown', '.tsv', '.json', '.txt', '.csv']
+    if (!ALLOWED_EXT.includes(path.extname(abs).toLowerCase())) {
+      return json({ ok: false, error: { code: 'lifeboard/unsupported-file' } }, 400)
+    }
     try {
-      await stat(abs)
+      const info = await stat(abs)
+      if (!info.isFile()) return json({ ok: false, error: { code: 'lifeboard/not-a-file' } }, 400)
+      if (info.size > 5 * 1024 * 1024) return json({ ok: false, error: { code: 'lifeboard/file-too-large' } }, 400)
     } catch {
       return json({ ok: false, error: { code: 'lifeboard/not-found' } }, 404)
     }
