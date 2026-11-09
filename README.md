@@ -7,6 +7,10 @@
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![dsh](https://img.shields.io/badge/dsh-%E2%89%A50.2.1--rc.2-4D6BFE.svg)](https://www.npmjs.com/package/@deepseek-ai/dsh)
 
+![dsh-lifeboard](docs/hero.jpg)
+
+> 上图是用内置示例数据渲染的界面示意图；下面是插件在 DSH 侧边栏的真实截图。
+
 ![看板总览](docs/screenshot-board.png)
 
 > 截图为内置示例数据（虚构人物），不是真实记录。
