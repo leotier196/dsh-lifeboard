@@ -158,6 +158,12 @@ check('体检识别日志目录 ok', probeItems.find((i) => i.key === 'logDir')?
 check('体检识别待办 ok', probeItems.find((i) => i.key === 'todoFile')?.status === 'ok')
 check('体检识别资产表 ok', probeItems.find((i) => i.key === 'assetsFile')?.status === 'ok')
 
+// 6.6) 自动扫描：至少认得 TODO.md（2026-11-10 M2.5）
+r = await call('/api/lifeboard/scan', {})
+const cands = r.value?.candidates ?? []
+check('扫描返回候选', Array.isArray(cands))
+check('扫描认得 TODO.md', cands.some((c) => c.key === 'todoFile'), JSON.stringify(cands.map((c) => c.key)))
+
 // 7) 示例数据预览（demoMode）：不读真实 vault，也能看到五卡效果
 r = await call('/api/lifeboard/settings', { action: 'save', values: { demoMode: true } })
 check('打开示例预览可保存', r.ok === true)

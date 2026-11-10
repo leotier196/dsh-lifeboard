@@ -36,6 +36,12 @@ window.__ModuleLoader__.load({
         'settings.aliasTitle': '字段映射（可选）',
         'settings.aliasHint': '每行一条，左边是标准字段，右边是你的写法（逗号分隔）。改完保存即生效。',
         'settings.aliasPlaceholder': '体重：我的体重, wt\n睡眠：睡眠时间',
+        'settings.scan': '自动扫描数据源',
+        'settings.scanning': '扫描中…',
+        'settings.scanHint': '在你的 vault 里找日志/待办/资产/书架，找到的直接一键填上',
+        'settings.scanEmpty': '没找到明显的数据源；可以手动填，或先建一个日志目录',
+        'settings.useThis': '用这个',
+        'settings.useAll': '全部采用',
         'settings.probe': '检查这些路径',
         'settings.probing': '检查中…',
         'settings.probeHint': '按上面填的值直接查，不用先保存',
@@ -137,6 +143,12 @@ window.__ModuleLoader__.load({
         'settings.aliasTitle': 'Field aliases (optional)',
         'settings.aliasHint': 'One per line: standard field on the left, your own labels on the right (comma separated). Saving applies it.',
         'settings.aliasPlaceholder': 'weight: my weight, wt\nsleep: sleep time',
+        'settings.scan': 'Auto-detect sources',
+        'settings.scanning': 'Scanning…',
+        'settings.scanHint': 'Looks inside your vault for logs, todos, assets and bookshelf, then fills them in',
+        'settings.scanEmpty': 'Nothing obvious found — fill the paths manually or create a log folder first',
+        'settings.useThis': 'Use',
+        'settings.useAll': 'Use all',
         'settings.probe': 'Check these paths',
         'settings.probing': 'Checking…',
         'settings.probeHint': 'Uses the values above without saving first',
@@ -246,6 +258,11 @@ window.__ModuleLoader__.load({
 .lb-check{display:flex;align-items:center;gap:6px;font-size:12px}
 .lb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
 .lb-diagnose{margin-bottom:14px}
+.lb-scan{padding:10px 12px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 26%,transparent);border-radius:10px;background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 5%,transparent)}
+.lb-scan-btn{font-weight:600}
+.lb-scan-all{margin-top:8px;font-size:11.5px;padding:3px 10px}
+.lb-scan-row{display:flex;align-items:center;gap:7px;min-width:0;font-size:11.5px;padding:2px 0}
+.lb-scan-key{flex:none;font:600 10.5px/1.4 var(--ds-font-family-code,ui-monospace,Menlo,monospace);color:var(--dsw-alias-label-secondary);min-width:74px}
 .lb-textarea{min-height:86px;resize:vertical;font:500 11.5px/1.6 var(--ds-font-family-code,ui-monospace,Menlo,monospace)}
 .lb-probe-row{align-items:center}
 .lb-probe{display:flex;flex-direction:column;gap:4px;padding:8px 10px;border:1px solid var(--dsw-alias-border-l2);border-radius:9px;font-size:11.5px}
@@ -968,6 +985,8 @@ window.__ModuleLoader__.load({
       const [saving, setSaving] = useState(false)
       const [probing, setProbing] = useState(false)
       const [probe, setProbe] = useState(null)
+      const [scanning, setScanning] = useState(false)
+      const [scan, setScan] = useState(null)
 
       const load = useCallback(() => {
         fetch('api/lifeboard/settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"action":"get"}' })
@@ -979,6 +998,17 @@ window.__ModuleLoader__.load({
 
       const set = (key, value) => setForm((f) => Object.assign({}, f, { [key]: value }))
       const setCard = (key, value) => setForm((f) => Object.assign({}, f, { cards: Object.assign({}, f.cards, { [key]: value }) }))
+
+      // 自动扫描：在 vault 里找候选数据源，用户点「用这个」写进表单（2026-11-10 M2.5）
+      const runScan = () => {
+        setScanning(true)
+        setScan(null)
+        fetch('api/lifeboard/scan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          .then((r) => r.json())
+          .then((v) => setScan(v && v.ok ? v.value : { candidates: [], error: (v && v.error && v.error.message) || '扫描失败' }))
+          .catch(() => setScan({ candidates: [], error: '扫描失败' }))
+          .finally(() => setScanning(false))
+      }
 
       // 按当前表单值检查一遍路径，不用先保存（2026-11-10 易用性）
       const runProbe = () => {
@@ -1044,6 +1074,35 @@ window.__ModuleLoader__.load({
       ]
       const CARD_LABELS = { health: '健康', tasks: '任务', assets: '资产', mood: '情绪·运动', shelf: '书架' }
       return h('div', { className: 'lb-settings' },
+        // 自动扫描放最上面：新用户第一步就该是「让它自己找」（2026-11-10 M2.5）
+        h('div', { className: 'lb-scan' },
+          h('div', { className: 'lb-field-row' },
+            h('button', { className: 'lb-refresh lb-scan-btn', onClick: runScan, disabled: scanning },
+              scanning ? t('settings.scanning') : t('settings.scan')),
+            h('span', { className: 'lb-note' }, t('settings.scanHint'))),
+          scan
+            ? h('div', { className: 'lb-probe' },
+                scan.error ? h('p', { className: 'lb-warn' }, scan.error) : null,
+                (scan.candidates ?? []).length === 0
+                  ? h('p', { className: 'lb-note' }, t('settings.scanEmpty'))
+                  : h('div', null,
+                      (scan.candidates ?? []).map((c) => h('div', { key: c.key + c.path, className: 'lb-scan-row' },
+                        h('span', { className: 'lb-probe-dot lb-probe-ok', 'aria-hidden': true }),
+                        h('b', { className: 'lb-scan-key' }, c.key),
+                        h('code', { className: 'lb-probe-path' }, c.path),
+                        h('span', { className: 'lb-probe-detail' }, c.detail),
+                        h('button', { className: 'lb-act', onClick: () => set(c.key, c.path) }, t('settings.useThis')))),
+                      h('button', {
+                        className: 'lb-refresh lb-scan-all',
+                        onClick: () => {
+                          const best = {}
+                          for (const c of scan.candidates ?? []) {
+                            if (best[c.key] === undefined || c.score > (best[c.key].score ?? 0)) best[c.key] = c
+                          }
+                          setForm((f) => Object.assign({}, f, Object.fromEntries(Object.entries(best).map(([k, v]) => [k, v.path]))))
+                        },
+                      }, t('settings.useAll'))))
+            : null),
         h('p', { className: 'lb-note' }, '所有路径都相对 vault 根目录；文件不存在时对应卡片自动显示「暂无数据」。'),
         SETTINGS_FIELDS.map(([key, , label]) => h('label', { key, className: 'lb-field' },
           h('span', { className: 'lb-field-k' }, label),

@@ -1427,6 +1427,95 @@ export async function apply(ctx, config) {
    * 路径体检：POST /api/lifeboard/probe {values?}
    * 用户在设置页填完路径点「检查」，立刻知道每项找到没、能读到几条（2026-11-10 易用性）。
    */
+  /**
+   * 自动扫描数据源：POST /api/lifeboard/scan
+   * 在 vaultRoot 内限量遍历，按特征给候选路径打分，供设置页「一键采用」（2026-11-10 M2.5）。
+   * 只读；节点上限 5000、深度 ≤4、3 秒超时。
+   */
+  const scanHandler = async () => {
+    const root = await resolveVaultRoot()
+    if (root === null || root === '') return json({ ok: true, value: { vaultMissing: true, candidates: [] } })
+    const SKIP = new Set(['.git', 'node_modules', '.obsidian', '.trash', '.backup', 'attachments', 'node_modules', '.DS_Store'])
+    const DATE_MD = /^\d{4}-\d{2}-\d{2}\.md$/
+    const found = []
+    const deadline = Date.now() + 3000
+    let visited = 0
+
+    const relTo = (abs) => path.relative(root, abs) || '.'
+
+    async function walk(dir, depth) {
+      if (depth > 4 || visited > 5000 || Date.now() > deadline) return
+      let entries
+      try { entries = await readdir(dir, { withFileTypes: true }) } catch { return }
+      visited += entries.length
+      const files = entries.filter((e) => e.isFile()).map((e) => e.name)
+      const subdirs = entries
+        .filter((e) => e.isDirectory() && !SKIP.has(e.name) && !e.name.startsWith('.'))
+        .map((e) => e.name)
+
+      // 1) 日期日志
+      const dated = files.filter((n) => DATE_MD.test(n)).sort()
+      if (dated.length >= 3) {
+        // 抽样最新一份：像「生活日志」的加分，避免把工作日记目录排到前面
+        let healthish = 0
+        const samples = dated.slice(-3)
+        for (const f of samples) {
+          try {
+            const text = await readFile(path.join(dir, f), 'utf8')
+            if (/^##\s*(健康|Health)/m.test(text)) healthish += 1
+          } catch { /* 跳过 */ }
+        }
+        const ratio = samples.length > 0 ? healthish / samples.length : 0
+        const bonus = ratio >= 0.99 ? 35 : ratio >= 0.6 ? 25 : ratio > 0 ? 8 : 0
+        found.push({ key: 'logDir', path: relTo(dir), score: 30 + Math.min(20, dated.length) + bonus,
+          detail: `${dated.length} 份日期日志，最新 ${dated[dated.length - 1].replace('.md', '')}${healthish > 0 ? ` · ${healthish}/${samples.length} 份含健康段` : ''}` })
+      }
+      // 2) 待办
+      if (files.includes('TODO.md')) {
+        found.push({ key: 'todoFile', path: relTo(path.join(dir, 'TODO.md')), score: 60, detail: '存在 TODO.md' })
+      }
+      // 3) TSV：看表头判断资产 / 消费（每个目录最多查 3 个）
+      for (const name of files.filter((n) => n.endsWith('.tsv')).slice(0, 3)) {
+        if (Date.now() > deadline) break
+        let head = ''
+        try {
+          const text = await readFile(path.join(dir, name), 'utf8')
+          head = text.split(/\r?\n/)[0] ?? ''
+        } catch { continue }
+        if (head.includes('日期') && head.includes('类别') && head.includes('名称')) {
+          found.push({ key: 'assetsFile', path: relTo(path.join(dir, name)), score: 70, detail: '表头含 日期/类别/名称/金额万' })
+        } else if (head.includes('日期') && head.includes('金额') && !head.includes('名称')) {
+          found.push({ key: 'financeFile', path: relTo(path.join(dir, name)), score: 70, detail: '表头含 日期/类别/金额元' })
+        }
+      }
+      // 4) 书架：一堆不是日期命名的 md
+      const books = files.filter((n) => n.endsWith('.md') && !DATE_MD.test(n) && n !== 'TODO.md')
+      if (books.length >= 5) {
+        const nameHint = /书|book|shelf|reading|library|阅读/i.test(path.basename(dir)) ? 30 : 0
+        found.push({ key: 'shelfDir', path: relTo(dir), score: 20 + Math.min(20, Math.floor(books.length / 2)) + nameHint,
+          detail: `${books.length} 篇非日期笔记${nameHint ? ' · 目录名像书架' : ''}` })
+      }
+      // 5) 封面目录
+      if (subdirs.includes('封面')) {
+        found.push({ key: 'coverDir', path: relTo(path.join(dir, '封面')), score: 40, detail: '存在「封面」子目录' })
+      }
+
+      for (const d of subdirs) await walk(path.join(dir, d), depth + 1)
+    }
+
+    try { await walk(root, 0) } catch { /* 扫描失败就返回已找到的 */ }
+
+    // 同一 key 取最高分，最多留前 2 个候选
+    const byKey = new Map()
+    for (const c of found.sort((a, b) => b.score - a.score)) {
+      const list = byKey.get(c.key) ?? []
+      if (list.length < 2) list.push(c)
+      byKey.set(c.key, list)
+    }
+    const candidates = [...byKey.entries()].flatMap(([key, list]) => list.map((c) => ({ ...c, key })))
+    return json({ ok: true, value: { root, candidates, visited, timedOut: Date.now() > deadline } })
+  }
+
   const probeHandler = async (req) => {
     let body = {}
     try { body = await req.json() } catch { /* 无 body 就按当前配置 */ }
@@ -1670,6 +1759,8 @@ export async function apply(ctx, config) {
   const okExcerpt = registerRoute(ctx, '/api/lifeboard/excerpt', excerptHandler, 'lifeboard: excerpt route')
   const okMood = registerRoute(ctx, '/api/lifeboard/mood', moodHandler, 'lifeboard: mood route')
   const okProbe = registerRoute(ctx, '/api/lifeboard/probe', probeHandler, 'lifeboard: probe route')
+  const okScan = registerRoute(ctx, '/api/lifeboard/scan', scanHandler, 'lifeboard: scan route')
+  if (!okScan) ctx.logger?.warn('lifeboard: scan route unavailable')
   if (!okProbe) ctx.logger?.warn('lifeboard: probe route unavailable')
   if (!okBoard) ctx.logger?.warn('lifeboard: connection fetch route unavailable, board endpoint not registered')
   if (!okCover) ctx.logger?.warn('lifeboard: connection fetch route unavailable, cover endpoint not registered')
