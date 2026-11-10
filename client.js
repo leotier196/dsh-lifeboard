@@ -52,6 +52,7 @@ window.__ModuleLoader__.load({
         'health.bmi': 'BMI',
         'health.goal': '减脂进度（相对起点）',
         'health.goalTarget': '目标 {n} kg',
+        'health.goalDetail': '较起点 {lost} kg · 目标 {goal} kg · 完成 {pct}%',
         'health.protein': '今日蛋白',
         'health.proteinHit': '达标 {n} 天 · 完整 {m} 天',
         'health.proteinPartial': '截至当前',
@@ -146,6 +147,7 @@ window.__ModuleLoader__.load({
         'health.bmi': 'BMI',
         'health.goal': 'Fat-loss progress (vs start)',
         'health.goalTarget': 'goal {n} kg',
+        'health.goalDetail': 'vs start {lost} kg · goal {goal} kg · {pct}% done',
         'health.protein': '今日蛋白',
         'health.proteinHit': '达标 {n} 天 · 完整 {m} 天',
         'health.proteinPartial': '截至当前',
@@ -274,7 +276,7 @@ window.__ModuleLoader__.load({
 .lb-delta-up{color:var(--dsw-alias-state-error-primary,#f04438);border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary,#f04438) 32%,transparent);background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#f04438) 7%,transparent)}
 
 .lb-goal{margin-left:auto;display:inline-flex;align-items:center;gap:6px;flex:none}
-.lb-ring{width:38px;height:38px;display:block}
+.lb-ring{width:44px;height:44px;display:block}
 .lb-ring circle{transition:stroke-dashoffset .4s}
 .lb-ring-text{font:700 9px/1 var(--ds-font-family-code,ui-monospace,SFMono-Regular,Menlo,monospace);fill:var(--dsw-alias-label-primary)}
 .lb-goal-text{display:flex;flex-direction:column;line-height:1.25}
@@ -537,15 +539,16 @@ window.__ModuleLoader__.load({
                 // 箭头已经表示方向，数字再带负号会变成「▼ −0.3」双符号（2026-11-10 leo 反馈）
                 (delta > 0 ? '▲ ' : delta < 0 ? '▼ ' : '') + (delta === 0 ? '0' : String(Math.abs(delta))))
             : h('span', { className: 'lb-metric-sub' }, t('health.noCompare')),
+        // 2026-11-10 leo：主位只放「较昨日」的变化（上面那个徽章），
+        // 总进度交给右侧圆环；环旁边不再堆文字，干净一点。详情走 title 提示。
         health.goal
-          ? h('span', { className: 'lb-goal', title: t('health.goal') },
-              h(GoalRing, { goal: health.goal }),
-              h('span', { className: 'lb-goal-text' },
-                // lost 是「较起点」的净变化：正数=减了，负数=涨了。
-                // 直接写「−0.3 kg」会被读成"减了 0.3"（2026-11-10 leo 反馈）
-                h('b', null, health.goal.lost > 0 ? '−' + health.goal.lost + ' kg'
-                  : health.goal.lost < 0 ? '+' + Math.abs(health.goal.lost) + ' kg' : '±0'),
-                h('small', null, t('health.goalTarget').replace('{n}', health.goal.fatGoal))))
+          ? h('span', {
+              className: 'lb-goal',
+              title: t('health.goalDetail')
+                .replace('{lost}', health.goal.lost > 0 ? '−' + health.goal.lost : '+' + Math.abs(health.goal.lost))
+                .replace('{goal}', health.goal.fatGoal)
+                .replace('{pct}', Math.round((health.goal.progress || 0) * 100)),
+            }, h(GoalRing, { goal: health.goal }))
           : null),
         h('div', null,
           h('span', { className: 'lb-spark-label' }, t('health.trend')),
