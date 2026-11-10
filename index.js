@@ -13,7 +13,7 @@
  */
 import { readFile, readdir, stat, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
-import { parseHealth, findMetric } from './lib/parse.mjs'
+import { parseHealth, findMetric, parseAliasText, aliasTextOf as require_aliasText } from './lib/parse.mjs'
 
 export const name = 'dsh-lifeboard'
 
@@ -38,7 +38,7 @@ let RUNTIME_CONFIG = {}
 /** 配置版本号：设置一改就 +1，让 vault 根缓存失效（否则切演示/换路径读的还是老目录） */
 let CONFIG_EPOCH = 0
 
-const SETTINGS_KEYS = ['vaultRoot', 'logDir', 'todoFile', 'assetsFile', 'financeFile', 'shelfDir', 'coverDir', 'excerptDir', 'backupDir', 'windowDays', 'proteinTarget', 'proteinTolerance', 'fatGoalKg', 'cards', 'demoMode', 'demoCoverDir', 'einkEnable', 'einkPort', 'einkKindleDir']
+const SETTINGS_KEYS = ['vaultRoot', 'logDir', 'todoFile', 'assetsFile', 'financeFile', 'shelfDir', 'coverDir', 'excerptDir', 'backupDir', 'windowDays', 'proteinTarget', 'proteinTolerance', 'fatGoalKg', 'cards', 'demoMode', 'demoCoverDir', 'einkEnable', 'einkPort', 'einkKindleDir', 'fieldAliases', 'fieldAliasText']
 
 function settingsFile() {
   return path.join(process.env.HOME || '', '.dsh', 'storages', 'dsh-lifeboard', 'settings.json')
@@ -86,6 +86,8 @@ function applySettings(settings) {
     const v = settings?.[key]
     if (typeof v === 'string' && v.trim() !== '') PATHS[key] = v.trim()
   }
+  if (settings?.fieldAliases && typeof settings.fieldAliases === 'object') cfgFieldAliases = settings.fieldAliases
+  if (typeof settings?.fieldAliasText === 'string') cfgFieldAliases = parseAliasText(settings.fieldAliasText)
   if (Number.isFinite(settings?.proteinTarget)) cfgProteinTarget = settings.proteinTarget
   if (Number.isFinite(settings?.proteinTolerance)) cfgProteinTolerance = settings.proteinTolerance
   if (Number.isFinite(settings?.fatGoalKg)) cfgFatGoalKg = settings.fatGoalKg
@@ -161,6 +163,7 @@ function pickDate(text) {
 
 const logCache = new Map() // file -> { mtimeMs, day }
 let cfgProteinTarget = 130 // 可在 row config 用 proteinTarget 覆盖
+let cfgFieldAliases = {} // 字段映射表：{ weight: ['我的体重'], ... }（2026-11-10 M2）
 let cfgProteinTolerance = 0.05 // 达标容差（130 × 0.95 ≈ 124g 起算）
 let cfgFatGoalKg = 6.1 // 可在 row config 用 fatGoalKg 覆盖
 let todoCache = null // { mtimeMs, value }
@@ -207,7 +210,7 @@ function foldDay(date, markdown) {
   const sports = [...sections.entries()].find(([k]) => k.startsWith('运动'))?.[1] ?? ''
 
   // 睡眠：7.5 小时 / 7.5h / 450 分钟 / sleep: 7.5 都认（2026-11-10 兼容层）
-  const sleepHit = findMetric(sleep, 'sleep')
+  const sleepHit = findMetric(sleep, 'sleep', cfgFieldAliases)
   const sleepMatch = !sleepHit && /(\d+(?:\.\d+)?)\s*(?:小时|个?h(?:ours?|rs?)?(?![a-z]))/i.exec(sleep)
   const exercised = sports.split(/\r?\n/).some((l) => l.trim().startsWith('-') && l.trim().length > 1)
   // 距离：兼容 km 与 m（如「室内步行 874 m」），并剔除「爬升 46m」这类高度写法（2026-11-09 修）
@@ -238,7 +241,7 @@ function foldDay(date, markdown) {
     const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown)
     if (fm) healthSource = fm[1]
   }
-  const metrics = parseHealth(healthSource)
+  const metrics = parseHealth(healthSource, { aliases: cfgFieldAliases })
   const boneSaltCell = tableCell(health, '骨盐率') // 备注（不足/偏低）仍从表格取
   return {
     date,
@@ -1093,6 +1096,7 @@ export async function apply(ctx, config) {
       ctx.logger?.warn('lifeboard: demo vault 生成失败 ' + String(error))
     }
   }
+  if (config?.fieldAliases && typeof config.fieldAliases === 'object') cfgFieldAliases = config.fieldAliases
   if (Number.isFinite(config?.proteinTarget)) cfgProteinTarget = config.proteinTarget
   if (Number.isFinite(config?.proteinTolerance)) cfgProteinTolerance = config.proteinTolerance
   if (Number.isFinite(config?.fatGoalKg)) cfgFatGoalKg = config.fatGoalKg
@@ -1621,6 +1625,9 @@ export async function apply(ctx, config) {
       backupDir: pick('backupDir', DEFAULT_PATHS.backupDir),
       windowDays: pick('windowDays', 7),
       proteinTarget: pick('proteinTarget', 130),
+      fieldAliasText: typeof (USER_SETTINGS?.fieldAliasText ?? RUNTIME_CONFIG?.fieldAliasText) === 'string'
+        ? String(USER_SETTINGS?.fieldAliasText ?? RUNTIME_CONFIG?.fieldAliasText)
+        : (cfgFieldAliases && Object.keys(cfgFieldAliases).length > 0 ? require_aliasText(cfgFieldAliases) : ''),
       cards: Object.assign({ health: true, tasks: true, assets: true, mood: true, shelf: true }, cfg.cards ?? {}, USER_SETTINGS?.cards ?? {}),
       demoMode: pick('demoMode', false) === true,
       demoCoverDir: pick('demoCoverDir', ''),

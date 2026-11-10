@@ -33,6 +33,9 @@ window.__ModuleLoader__.load({
         'panel.diagnose': '格式体检',
         'panel.diagnoseHint': '下面这些地方跟插件约定不一致，所以对应卡片读不到数据；按右侧示例改一下即可。',
         'panel.copyTemplate': '复制示例',
+        'settings.aliasTitle': '字段映射（可选）',
+        'settings.aliasHint': '每行一条，左边是标准字段，右边是你的写法（逗号分隔）。改完保存即生效。',
+        'settings.aliasPlaceholder': '体重：我的体重, wt\n睡眠：睡眠时间',
         'settings.probe': '检查这些路径',
         'settings.probing': '检查中…',
         'settings.probeHint': '按上面填的值直接查，不用先保存',
@@ -131,6 +134,9 @@ window.__ModuleLoader__.load({
         'panel.diagnose': 'Format check',
         'panel.diagnoseHint': 'These spots do not match what the plugin expects, so the cards stay empty. Fix them against the sample on the right.',
         'panel.copyTemplate': 'Copy sample',
+        'settings.aliasTitle': 'Field aliases (optional)',
+        'settings.aliasHint': 'One per line: standard field on the left, your own labels on the right (comma separated). Saving applies it.',
+        'settings.aliasPlaceholder': 'weight: my weight, wt\nsleep: sleep time',
         'settings.probe': 'Check these paths',
         'settings.probing': 'Checking…',
         'settings.probeHint': 'Uses the values above without saving first',
@@ -240,6 +246,7 @@ window.__ModuleLoader__.load({
 .lb-check{display:flex;align-items:center;gap:6px;font-size:12px}
 .lb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
 .lb-diagnose{margin-bottom:14px}
+.lb-textarea{min-height:86px;resize:vertical;font:500 11.5px/1.6 var(--ds-font-family-code,ui-monospace,Menlo,monospace)}
 .lb-probe-row{align-items:center}
 .lb-probe{display:flex;flex-direction:column;gap:4px;padding:8px 10px;border:1px solid var(--dsw-alias-border-l2);border-radius:9px;font-size:11.5px}
 .lb-probe-row-item{display:flex;align-items:center;gap:7px;min-width:0}
@@ -1052,6 +1059,16 @@ window.__ModuleLoader__.load({
           Object.keys(CARD_LABELS).map((key) => h('label', { key, className: 'lb-check' },
             h('input', { type: 'checkbox', checked: cards[key] !== false, onChange: (e) => setCard(key, e.target.checked) }),
             h('span', null, CARD_LABELS[key])))),
+        h('label', { className: 'lb-field' },
+          h('span', { className: 'lb-field-k' }, t('settings.aliasTitle')),
+          h('textarea', {
+            className: 'lb-input lb-textarea',
+            rows: 4,
+            value: form.fieldAliasText ?? '',
+            placeholder: t('settings.aliasPlaceholder'),
+            onChange: (e) => set('fieldAliasText', e.target.value),
+          }),
+          h('span', { className: 'lb-note' }, t('settings.aliasHint'))),
         h('div', { className: 'lb-field-row lb-probe-row' },
           h('button', { className: 'lb-refresh', onClick: runProbe, disabled: probing || form === null },
             probing ? t('settings.probing') : t('settings.probe')),

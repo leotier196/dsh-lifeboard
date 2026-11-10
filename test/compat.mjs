@@ -2,7 +2,7 @@
  * 兼容层单测：不同写法 → 同一份标准字段（2026-11-10 M2）
  * 用法：node test/compat.mjs
  */
-import { findMetric, parseHealth, toStandard } from '../lib/parse.mjs'
+import { findMetric, parseHealth, toStandard, parseAliasText, aliasTextOf } from '../lib/parse.mjs'
 
 const results = []
 const check = (name, ok, extra = '') => {
@@ -83,7 +83,14 @@ const noise = `## 健康
 const t6 = parseHealth(noise, { allowLow: true })
 check('噪声段不误读体重', t6.weight === undefined, JSON.stringify(t6))
 
-// 8) 显式 findMetric 的置信度
+// 8) 字段映射表：自定义别名
+const custom = parseAliasText('体重：我的体重, wt\n睡眠：睡眠时间')
+check('别名文本能解析', Array.isArray(custom.weight) && custom.weight[0] === '我的体重', JSON.stringify(custom))
+check('自定义别名命中', findMetric('我的体重：70.5 kg', 'weight', custom)?.value === 70.5)
+check('自定义别名走表格', parseHealth('| 我的体重 | 71 |', { aliases: custom }).weight === 71)
+check('别名回显成文本', aliasTextOf(custom).includes('我的体重'))
+
+// 9) 显式 findMetric 的置信度
 const conf = findMetric('体重：69.5 kg', 'weight')
 check('键值识别为高可信', conf && conf.confidence === 'high')
 
