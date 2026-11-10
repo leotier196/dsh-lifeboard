@@ -216,8 +216,8 @@ window.__ModuleLoader__.load({
 .lb-check{display:flex;align-items:center;gap:6px;font-size:12px}
 .lb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
 
-.lb-card{--lb-accent:var(--dsw-alias-brand-primary,#4d6bfe);position:relative;min-width:0;display:flex;flex-direction:column;gap:12px;padding:16px 18px 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:14px;background:linear-gradient(180deg,var(--dsw-alias-bg-layer-1),color-mix(in srgb,var(--dsw-alias-bg-layer-2) 60%,var(--dsw-alias-bg-layer-1)));transition:border-color .18s,box-shadow .18s,transform .18s;overflow:hidden}
-.lb-card:before{content:"";position:absolute;inset:0 0 auto;height:2px;background:linear-gradient(90deg,var(--lb-accent),color-mix(in srgb,var(--lb-accent) 20%,transparent) 55%,transparent);opacity:.85}
+.lb-card{--lb-accent:var(--dsw-alias-brand-primary,#4d6bfe);position:relative;min-width:0;display:flex;flex-direction:column;gap:12px;padding:16px 18px 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:14px;background:radial-gradient(120% 90% at 100% 0,color-mix(in srgb,var(--lb-accent) 8%,transparent),transparent 62%),linear-gradient(180deg,var(--dsw-alias-bg-layer-1),color-mix(in srgb,var(--dsw-alias-bg-layer-2) 60%,var(--dsw-alias-bg-layer-1)));transition:border-color .18s,box-shadow .18s,transform .18s;overflow:hidden}
+.lb-card:before{content:"";position:absolute;inset:0 0 auto;height:2px;background:linear-gradient(90deg,var(--lb-accent),color-mix(in srgb,var(--lb-accent) 20%,transparent) 55%,transparent);opacity:.9;box-shadow:0 0 12px color-mix(in srgb,var(--lb-accent) 45%,transparent)}
 .lb-card:hover{border-color:color-mix(in srgb,var(--lb-accent) 32%,var(--dsw-alias-border-l2));box-shadow:0 8px 24px color-mix(in srgb,var(--color-neutral-500) 11%,transparent);transform:translateY(-1px)}
 .lb-card-head{display:flex;align-items:center;gap:8px;min-width:0}
 .lb-card-icon{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:14px;background:color-mix(in srgb,var(--lb-accent) 11%,transparent);border:1px solid color-mix(in srgb,var(--lb-accent) 26%,transparent);flex:none}
@@ -276,7 +276,7 @@ window.__ModuleLoader__.load({
 .lb-checkin-btn{font:inherit;font-size:11.5px;padding:3px 10px;border-radius:999px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);cursor:pointer;transition:color .15s,border-color .15s}
 .lb-checkin-btn:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-tertiary,var(--dsw-alias-border-l2))}
 .lb-checkin-btn:disabled{opacity:.5;cursor:default}
-.lb-spark{width:100%;height:34px;display:block;color:var(--lb-accent);opacity:.9}
+.lb-spark{width:100%;height:38px;display:block;color:var(--lb-accent);opacity:.95}
 .lb-spark-empty{height:34px;border-radius:6px;background:repeating-linear-gradient(90deg,var(--dsw-alias-border-l2) 0 1px,transparent 1px 12px);opacity:.5}
 .lb-spark-label{font:500 9.5px/1 var(--ds-font-family-code,ui-monospace,SFMono-Regular,Menlo,monospace);letter-spacing:.08em;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));text-transform:uppercase}
 
@@ -294,7 +294,8 @@ window.__ModuleLoader__.load({
 .lb-act{font:inherit;font-size:11px;line-height:1;padding:2px 6px;border-radius:6px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);cursor:pointer}
 .lb-act:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-tertiary,var(--dsw-alias-border-l2))}
 .lb-act-done:hover{color:var(--dsw-alias-state-success-primary,#12b76a);border-color:color-mix(in srgb,var(--dsw-alias-state-success-primary,#12b76a) 40%,transparent)}
-.lb-stat{min-width:0;overflow:hidden;padding:8px 9px;border-radius:9px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-2) 70%,transparent);border:1px solid var(--dsw-alias-border-l2)}
+.lb-stat{min-width:0;overflow:hidden;padding:8px 9px;border-radius:9px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-2) 70%,transparent);border:1px solid var(--dsw-alias-border-l2);transition:border-color .15s,background-color .15s}
+.lb-stat:hover{border-color:color-mix(in srgb,var(--lb-accent,var(--dsw-alias-brand-primary)) 30%,var(--dsw-alias-border-l2))}
 .lb-stat-k{display:block;font-size:10px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lb-stat-v{display:block;max-width:100%;margin-top:2px;overflow:hidden;text-overflow:ellipsis;font:650 14px/1.2 var(--ds-font-family-code,ui-monospace,SFMono-Regular,Menlo,monospace);font-variant-numeric:tabular-nums;white-space:nowrap}
 .lb-stat-v small{font-size:10px;font-weight:500;color:var(--dsw-alias-label-secondary);margin-left:2px}
@@ -434,9 +435,14 @@ window.__ModuleLoader__.load({
       const max = Math.max(...pts)
       const span = max - min || 1
       const step = width / (pts.length - 1)
-      const points = pts.map((v, i) => `${(i * step).toFixed(1)},${(height - 3 - ((v - min) / span) * (height - 8)).toFixed(1)}`).join(' ')
+      const coords = pts.map((v, i) => [i * step, height - 3 - ((v - min) / span) * (height - 8)])
+      const points = coords.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
+      const [lastX, lastY] = coords[coords.length - 1]
+      // 面积填充让趋势线有"体积感"，末端点标出最新一次读数（2026-11-10）
       return h('svg', { className: 'lb-spark', viewBox: `0 0 ${width} ${height}`, preserveAspectRatio: 'none', 'aria-hidden': true },
-        h('polyline', { points, fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }))
+        h('polygon', { points: `${points} ${width},${height} 0,${height}`, fill: 'currentColor', opacity: 0.1, stroke: 'none' }),
+        h('polyline', { points, fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }),
+        h('circle', { cx: lastX.toFixed(1), cy: lastY.toFixed(1), r: 2.4, fill: 'currentColor', stroke: 'none' }))
     }
 
     // ---------- 卡片 ----------
