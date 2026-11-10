@@ -50,7 +50,8 @@ window.__ModuleLoader__.load({
         'health.boneSalt': '骨盐率',
         'health.heartRate': '心率',
         'health.bmi': 'BMI',
-        'health.goal': '减脂进度',
+        'health.goal': '减脂进度（相对起点）',
+        'health.goalTarget': '目标 {n} kg',
         'health.protein': '今日蛋白',
         'health.proteinHit': '达标 {n} 天 · 完整 {m} 天',
         'health.proteinPartial': '截至当前',
@@ -143,7 +144,8 @@ window.__ModuleLoader__.load({
         'health.boneSalt': 'Bone salt',
         'health.heartRate': 'Heart rate',
         'health.bmi': 'BMI',
-        'health.goal': '减脂进度',
+        'health.goal': 'Fat-loss progress (vs start)',
+        'health.goalTarget': 'goal {n} kg',
         'health.protein': '今日蛋白',
         'health.proteinHit': '达标 {n} 天 · 完整 {m} 天',
         'health.proteinPartial': '截至当前',
@@ -302,7 +304,9 @@ window.__ModuleLoader__.load({
 .lb-checkin-btn{font:inherit;font-size:11.5px;padding:3px 10px;border-radius:999px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);cursor:pointer;transition:color .15s,border-color .15s}
 .lb-checkin-btn:hover{color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-label-tertiary,var(--dsw-alias-border-l2))}
 .lb-checkin-btn:disabled{opacity:.5;cursor:default}
+.lb-spark-wrap{position:relative;height:38px}
 .lb-spark{width:100%;height:38px;display:block;color:var(--lb-accent);opacity:.95}
+.lb-spark-dot{position:absolute;width:7px;height:7px;border-radius:50%;background:currentColor;color:var(--lb-accent);transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-1),0 0 0 3px color-mix(in srgb,var(--lb-accent) 25%,transparent)}
 .lb-spark-empty{height:34px;border-radius:6px;background:repeating-linear-gradient(90deg,var(--dsw-alias-border-l2) 0 1px,transparent 1px 12px);opacity:.5}
 .lb-spark-label{font:500 9.5px/1 var(--ds-font-family-code,ui-monospace,SFMono-Regular,Menlo,monospace);letter-spacing:.08em;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));text-transform:uppercase}
 
@@ -465,10 +469,12 @@ window.__ModuleLoader__.load({
       const points = coords.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
       const [lastX, lastY] = coords[coords.length - 1]
       // 面积填充让趋势线有"体积感"，末端点标出最新一次读数（2026-11-10）
-      return h('svg', { className: 'lb-spark', viewBox: `0 0 ${width} ${height}`, preserveAspectRatio: 'none', 'aria-hidden': true },
-        h('polygon', { points: `${points} ${width},${height} 0,${height}`, fill: 'currentColor', opacity: 0.1, stroke: 'none' }),
-        h('polyline', { points, fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }),
-        h('circle', { cx: lastX.toFixed(1), cy: lastY.toFixed(1), r: 2.4, fill: 'currentColor', stroke: 'none' }))
+      return h('div', { className: 'lb-spark-wrap' },
+        h('svg', { className: 'lb-spark', viewBox: `0 0 ${width} ${height}`, preserveAspectRatio: 'none', 'aria-hidden': true },
+          h('polygon', { points: `${points} ${width},${height} 0,${height}`, fill: 'currentColor', opacity: 0.12, stroke: 'none' }),
+          h('polyline', { points, fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' })),
+        // 端点用 CSS 圆：SVG 被横向拉伸时 circle 会变椭圆，这里不受影响
+        h('i', { className: 'lb-spark-dot', style: { left: ((lastX / width) * 100).toFixed(2) + '%', top: ((lastY / height) * 100).toFixed(2) + '%' } }))
     }
 
     // ---------- 卡片 ----------
@@ -535,8 +541,11 @@ window.__ModuleLoader__.load({
           ? h('span', { className: 'lb-goal', title: t('health.goal') },
               h(GoalRing, { goal: health.goal }),
               h('span', { className: 'lb-goal-text' },
-                h('b', null, '−' + health.goal.lost + ' kg'),
-                h('small', null, '/ ' + health.goal.fatGoal + ' kg')))
+                // lost 是「较起点」的净变化：正数=减了，负数=涨了。
+                // 直接写「−0.3 kg」会被读成"减了 0.3"（2026-11-10 leo 反馈）
+                h('b', null, health.goal.lost > 0 ? '−' + health.goal.lost + ' kg'
+                  : health.goal.lost < 0 ? '+' + Math.abs(health.goal.lost) + ' kg' : '±0'),
+                h('small', null, t('health.goalTarget').replace('{n}', health.goal.fatGoal))))
           : null),
         h('div', null,
           h('span', { className: 'lb-spark-label' }, t('health.trend')),
