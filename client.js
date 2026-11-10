@@ -36,6 +36,13 @@ window.__ModuleLoader__.load({
         'settings.aliasTitle': '字段映射（可选）',
         'settings.aliasHint': '每行一条，左边是标准字段，右边是你的写法（逗号分隔）。改完保存即生效。',
         'settings.aliasPlaceholder': '体重：我的体重, wt\n睡眠：睡眠时间',
+        'settings.extract': '从笔记里发现数据',
+        'settings.extracting': '扫描中…',
+        'settings.extractHint': '只读取、只预览；点「采纳」才会写进派生文件，原文一个字不动',
+        'settings.extractSummary': '扫了 {days} 份日志，发现 {n} 条可入库数据',
+        'settings.extractEmpty': '没发现可抽取的内容（日志里可能还没写结构化数据）',
+        'settings.accept': '采纳全部高可信条目',
+        'settings.acceptDone': '已写入 {n} 条（跳过重复 {skip} 条）→ {file}',
         'settings.advanced': '高级：手动指定路径',
         'settings.advancedHint': '一般不用改——上面的自动扫描会把它们填好。',
         'settings.scaffold': '没有现成结构？生成示例目录',
@@ -148,6 +155,13 @@ window.__ModuleLoader__.load({
         'settings.aliasTitle': 'Field aliases (optional)',
         'settings.aliasHint': 'One per line: standard field on the left, your own labels on the right (comma separated). Saving applies it.',
         'settings.aliasPlaceholder': 'weight: my weight, wt\nsleep: sleep time',
+        'settings.extract': 'Mine data from my notes',
+        'settings.extracting': 'Scanning…',
+        'settings.extractHint': 'Read-only preview; nothing is written until you accept',
+        'settings.extractSummary': 'Scanned {days} logs, found {n} items',
+        'settings.extractEmpty': 'Nothing extractable found yet',
+        'settings.accept': 'Accept all high-confidence items',
+        'settings.acceptDone': 'Wrote {n} items (skipped {skip}) → {file}',
         'settings.advanced': 'Advanced: set paths manually',
         'settings.advancedHint': 'Usually unnecessary — Auto-detect fills these in.',
         'settings.scaffold': 'No structure yet? Create samples',
@@ -282,6 +296,10 @@ window.__ModuleLoader__.load({
 .lb-scan-btn{font-weight:600}
 .lb-scan-all{margin-top:8px;font-size:11.5px;padding:3px 10px}
 .lb-scan-foot{margin-top:8px}
+.lb-extract-list{display:flex;flex-direction:column;gap:2px;max-height:220px;overflow:auto}
+.lb-extract-row{display:flex;align-items:center;gap:7px;font-size:11px;min-width:0}
+.lb-extract-field{flex:none;min-width:120px;color:var(--dsw-alias-label-secondary);font-family:var(--ds-font-family-code,ui-monospace,Menlo,monospace)}
+.lb-extract-val{flex:none;min-width:64px;font-family:var(--ds-font-family-code,ui-monospace,Menlo,monospace)}
 .lb-scan-row{display:flex;align-items:center;gap:7px;min-width:0;font-size:11.5px;padding:2px 0}
 .lb-scan-key{flex:none;font:600 10.5px/1.4 var(--ds-font-family-code,ui-monospace,Menlo,monospace);color:var(--dsw-alias-label-secondary);min-width:74px}
 .lb-textarea{min-height:86px;resize:vertical;font:500 11.5px/1.6 var(--ds-font-family-code,ui-monospace,Menlo,monospace)}
@@ -1036,6 +1054,9 @@ window.__ModuleLoader__.load({
       const [scan, setScan] = useState(null)
       const [scaffolding, setScaffolding] = useState(false)
       const [scaffold, setScaffold] = useState(null)
+      const [extracted, setExtracted] = useState(null)
+      const [extracting, setExtracting] = useState(false)
+      const [accepted, setAccepted] = useState(null)
 
       const load = useCallback(() => {
         fetch('api/lifeboard/settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"action":"get"}' })
@@ -1057,6 +1078,24 @@ window.__ModuleLoader__.load({
           .then((v) => setScan(v && v.ok ? v.value : { candidates: [], error: (v && v.error && v.error.message) || '扫描失败' }))
           .catch(() => setScan({ candidates: [], error: '扫描失败' }))
           .finally(() => setScanning(false))
+      }
+
+      // 从笔记里发现数据：只抽取+展示，采纳才落盘（M3）
+      const runExtract = () => {
+        setExtracting(true); setExtracted(null); setAccepted(null)
+        fetch('api/lifeboard/extract', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          .then((r) => r.json())
+          .then((v) => setExtracted(v && v.ok ? v.value : { items: [], error: (v && v.error && v.error.message) || '扫描失败' }))
+          .catch(() => setExtracted({ items: [], error: '扫描失败' }))
+          .finally(() => setExtracting(false))
+      }
+      const acceptAll = () => {
+        const items = (extracted?.items ?? []).filter((i) => i.confidence === 'high')
+        if (items.length === 0) return
+        fetch('api/lifeboard/accept', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items }) })
+          .then((r) => r.json())
+          .then((v) => setAccepted(v && v.ok ? v.value : { error: (v && v.error && v.error.message) || '写入失败' }))
+          .catch(() => setAccepted({ error: '写入失败' }))
       }
 
       // 没有现成结构？生成一份示例目录照着写（2026-11-10）
@@ -1171,6 +1210,34 @@ window.__ModuleLoader__.load({
                       }, t('settings.useAll'))))
             : null),
         h('p', { className: 'lb-note' }, '所有路径都相对上面的资料目录；文件不存在时对应卡片自动显示「暂无数据」。'),
+        h('div', { className: 'lb-scan' },
+          h('div', { className: 'lb-field-row' },
+            h('button', { className: 'lb-refresh lb-scan-btn', onClick: runExtract, disabled: extracting },
+              extracting ? t('settings.extracting') : t('settings.extract')),
+            h('span', { className: 'lb-note' }, t('settings.extractHint'))),
+          extracted && extracted.error ? h('p', { className: 'lb-warn' }, extracted.error) : null,
+          extracted && !extracted.error
+            ? h('div', { className: 'lb-probe' },
+                h('p', { className: 'lb-note' },
+                  t('settings.extractSummary')
+                    .replace('{days}', String(extracted.scanned ?? 0))
+                    .replace('{n}', String((extracted.items ?? []).length))),
+                (extracted.items ?? []).length === 0
+                  ? h('p', { className: 'lb-note' }, t('settings.extractEmpty'))
+                  : h('div', null,
+                      h('div', { className: 'lb-extract-list' },
+                        (extracted.items ?? []).slice(0, 40).map((i) => h('div', { key: i.file + i.line, className: 'lb-extract-row' },
+                          h('code', { className: 'lb-scan-key' }, i.date ?? ''),
+                          h('span', { className: 'lb-extract-field' }, i.kind + '/' + i.field + (i.scope ? ':' + i.scope : '')),
+                          h('b', { className: 'lb-extract-val' }, String(i.value) + (i.unit ?? '')),
+                          h('code', { className: 'lb-probe-path' }, (i.file ?? '').split('/').pop() + ':' + i.line)))),
+                      h('div', { className: 'lb-field-row lb-scan-foot' },
+                        h('button', { className: 'lb-refresh', onClick: acceptAll }, t('settings.accept')),
+                        accepted && accepted.added !== undefined
+                          ? h('span', { className: 'lb-note' }, t('settings.acceptDone').replace('{n}', String(accepted.added)).replace('{skip}', String(accepted.skipped)).replace('{file}', accepted.file ?? ''))
+                          : null,
+                        accepted && accepted.error ? h('span', { className: 'lb-warn' }, accepted.error) : null)))
+            : null),
         h('details', { className: 'lb-tpl' },
           h('summary', null, t('settings.advanced')),
           h('p', { className: 'lb-note' }, t('settings.advancedHint')),

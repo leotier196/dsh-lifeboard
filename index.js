@@ -14,6 +14,7 @@
 import { readFile, readdir, stat, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { parseHealth, findMetric, parseAliasText, aliasTextOf as require_aliasText } from './lib/parse.mjs'
+import { extractFromText, summarize as summarizeExtract } from './lib/extract.mjs'
 
 export const name = 'dsh-lifeboard'
 
@@ -30,6 +31,7 @@ export const DEFAULT_PATHS = {
   coverDir: '_assistant/life/private/书/封面',
   excerptDir: '_assistant/life/private/书/抽取',
   backupDir: '_assistant/.backup',
+  derivedDir: '_assistant/life/derived',
 }
 let PATHS = { ...DEFAULT_PATHS }
 let USER_SETTINGS = {}
@@ -1533,6 +1535,87 @@ export async function apply(ctx, config) {
     }
   }
 
+  /**
+   * 抽取：POST /api/lifeboard/extract
+   * 扫近 30 天日志，跑规则抽取，返回带来源的建议条目（不改任何文件）。
+   */
+  const extractHandler = async () => {
+    const root = await resolveVaultRoot()
+    if (root === null || root === '') return json({ ok: true, value: { vaultMissing: true, items: [] } })
+    const logDir = path.join(root, PATHS.logDir)
+    const files = []
+    const now = new Date()
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
+      const key = dayKey(d)
+      const abs = path.join(logDir, `${key}.md`)
+      try {
+        const st = await stat(abs)
+        files.push({ key, abs, mtimeMs: st.mtimeMs, rel: path.relative(root, abs) })
+      } catch { /* 这天没有 */ }
+    }
+    const items = []
+    for (const f of files) {
+      let text = ''
+      try { text = await readFile(f.abs, 'utf8') } catch { continue }
+      if (text.length > 2 * 1024 * 1024) continue
+      for (const it of extractFromText(text, { file: f.rel })) items.push({ ...it, date: f.key })
+    }
+    // 去重：同一天同一字段只留一条；蛋白优先日终累计（否则会被几十条分项淹没）
+    const picked = []
+    const seen = new Map()
+    for (const it of items) {
+      const key = `${it.date}|${it.field}`
+      const prev = seen.get(key)
+      if (!prev) { seen.set(key, it); picked.push(it); continue }
+      if (it.field === 'protein' && it.scope === 'dayTotal' && prev.scope !== 'dayTotal') {
+        picked[picked.indexOf(prev)] = it
+        seen.set(key, it)
+      }
+    }
+    return json({ ok: true, value: { root, scanned: files.length, items: picked, summary: summarizeExtract(picked) } })
+  }
+
+  /**
+   * 采纳：POST /api/lifeboard/accept { items:[...] }
+   * 把选中的条目追加到派生目录（默认 _assistant/life/derived/YYYY-MM.md），按「文件:行」去重。
+   * 只写派生文件，绝不改原文。
+   */
+  const acceptHandler = async (req) => {
+    const root = await resolveVaultRoot()
+    if (root === null || root === '') return json({ ok: false, error: { code: 'no-vault', message: '先指定资料目录' } }, 400)
+    let body = {}
+    try { body = await req.json() } catch { /* 空 body */ }
+    const incoming = Array.isArray(body?.items) ? body.items.slice(0, 300) : []
+    if (incoming.length === 0) return json({ ok: false, error: { code: 'no-items', message: '没有要采纳的条目' } }, 400)
+
+    const dir = path.join(root, PATHS.derivedDir)
+    await mkdir(dir, { recursive: true })
+    const month = dayKey(new Date()).slice(0, 7)
+    const file = path.join(dir, `${month}.md`)
+    let existing = ''
+    try { existing = await readFile(file, 'utf8') } catch { /* 首次 */ }
+    if (existing === '') {
+      existing = `# 派生数据 ${month}\n\n> 由 lifeboard 从笔记里抽取，**不改原文**；删掉本文件等于全部撤销。\n\n| 日期 | 字段 | 值 | 来源 |\n|:--|:--|:--|:--|\n`
+    }
+    let added = 0
+    let skipped = 0
+    const rows = []
+    for (const it of incoming) {
+      const src = `${it.file ?? ''}:${it.line ?? ''}`
+      if (src !== ':' && existing.includes(src)) { skipped += 1; continue }
+      const val = typeof it.value === 'number' ? `${it.value}${it.unit ?? ''}` : String(it.value ?? '')
+      rows.push(`| ${it.date ?? ''} | ${it.kind}/${it.field} | ${val.replace(/\|/g, '／')} | ${src} |`)
+      added += 1
+    }
+    if (rows.length > 0) {
+      try { await writeFile(file, existing + rows.join('\n') + '\n', 'utf8') } catch (error) {
+        return json({ ok: false, error: { code: 'accept-failed', message: String(error) } }, 500)
+      }
+    }
+    return json({ ok: true, value: { file: path.relative(root, file), added, skipped } })
+  }
+
   const probeHandler = async (req) => {
     let body = {}
     try { body = await req.json() } catch { /* 无 body 就按当前配置 */ }
@@ -1778,6 +1861,9 @@ export async function apply(ctx, config) {
   const okProbe = registerRoute(ctx, '/api/lifeboard/probe', probeHandler, 'lifeboard: probe route')
   const okScan = registerRoute(ctx, '/api/lifeboard/scan', scanHandler, 'lifeboard: scan route')
   const okScaffold = registerRoute(ctx, '/api/lifeboard/scaffold', scaffoldHandler, 'lifeboard: scaffold route')
+  const okExtract = registerRoute(ctx, '/api/lifeboard/extract', extractHandler, 'lifeboard: extract route')
+  const okAccept = registerRoute(ctx, '/api/lifeboard/accept', acceptHandler, 'lifeboard: accept route')
+  if (!okExtract || !okAccept) ctx.logger?.warn('lifeboard: extract/accept route unavailable')
   if (!okScaffold) ctx.logger?.warn('lifeboard: scaffold route unavailable')
   if (!okScan) ctx.logger?.warn('lifeboard: scan route unavailable')
   if (!okProbe) ctx.logger?.warn('lifeboard: probe route unavailable')
