@@ -38,6 +38,9 @@ window.__ModuleLoader__.load({
         'settings.aliasPlaceholder': '体重：我的体重, wt\n睡眠：睡眠时间',
         'settings.advanced': '高级：手动指定路径',
         'settings.advancedHint': '一般不用改——上面的自动扫描会把它们填好。',
+        'settings.scaffold': '没有现成结构？生成示例目录',
+        'settings.scaffolding': '生成中…',
+        'settings.scaffoldDone': '已生成 {path}，照着往里写即可（不会动你现有文件）',
         'settings.scan': '自动扫描数据源',
         'settings.scanning': '扫描中…',
         'settings.scanHint': '在你指定的资料目录里找日志/待办/资产/书架，找到的直接一键填上',
@@ -147,6 +150,9 @@ window.__ModuleLoader__.load({
         'settings.aliasPlaceholder': 'weight: my weight, wt\nsleep: sleep time',
         'settings.advanced': 'Advanced: set paths manually',
         'settings.advancedHint': 'Usually unnecessary — Auto-detect fills these in.',
+        'settings.scaffold': 'No structure yet? Create samples',
+        'settings.scaffolding': 'Creating…',
+        'settings.scaffoldDone': 'Created {path} — copy the shapes (nothing else touched)',
         'settings.scan': 'Auto-detect sources',
         'settings.scanning': 'Scanning…',
         'settings.scanHint': 'Looks inside your notes folder for logs, todos, assets and bookshelf, then fills them in',
@@ -265,6 +271,7 @@ window.__ModuleLoader__.load({
 .lb-scan{padding:10px 12px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 26%,transparent);border-radius:10px;background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 5%,transparent)}
 .lb-scan-btn{font-weight:600}
 .lb-scan-all{margin-top:8px;font-size:11.5px;padding:3px 10px}
+.lb-scan-foot{margin-top:8px}
 .lb-scan-row{display:flex;align-items:center;gap:7px;min-width:0;font-size:11.5px;padding:2px 0}
 .lb-scan-key{flex:none;font:600 10.5px/1.4 var(--ds-font-family-code,ui-monospace,Menlo,monospace);color:var(--dsw-alias-label-secondary);min-width:74px}
 .lb-textarea{min-height:86px;resize:vertical;font:500 11.5px/1.6 var(--ds-font-family-code,ui-monospace,Menlo,monospace)}
@@ -991,6 +998,8 @@ window.__ModuleLoader__.load({
       const [probe, setProbe] = useState(null)
       const [scanning, setScanning] = useState(false)
       const [scan, setScan] = useState(null)
+      const [scaffolding, setScaffolding] = useState(false)
+      const [scaffold, setScaffold] = useState(null)
 
       const load = useCallback(() => {
         fetch('api/lifeboard/settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"action":"get"}' })
@@ -1012,6 +1021,17 @@ window.__ModuleLoader__.load({
           .then((v) => setScan(v && v.ok ? v.value : { candidates: [], error: (v && v.error && v.error.message) || '扫描失败' }))
           .catch(() => setScan({ candidates: [], error: '扫描失败' }))
           .finally(() => setScanning(false))
+      }
+
+      // 没有现成结构？生成一份示例目录照着写（2026-11-10）
+      const runScaffold = () => {
+        setScaffolding(true)
+        setScaffold(null)
+        fetch('api/lifeboard/scaffold', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          .then((r) => r.json())
+          .then((v) => setScaffold(v && v.ok ? v.value : { error: (v && v.error && v.error.message) || '生成失败' }))
+          .catch(() => setScaffold({ error: '生成失败' }))
+          .finally(() => setScaffolding(false))
       }
 
       // 按当前表单值检查一遍路径，不用先保存（2026-11-10 易用性）
@@ -1084,6 +1104,13 @@ window.__ModuleLoader__.load({
             h('button', { className: 'lb-refresh lb-scan-btn', onClick: runScan, disabled: scanning },
               scanning ? t('settings.scanning') : t('settings.scan')),
             h('span', { className: 'lb-note' }, t('settings.scanHint'))),
+          h('div', { className: 'lb-field-row lb-scan-foot' },
+            h('button', { className: 'lb-toggle', onClick: runScaffold, disabled: scaffolding },
+              scaffolding ? t('settings.scaffolding') : t('settings.scaffold')),
+            scaffold && scaffold.target
+              ? h('span', { className: 'lb-note' }, t('settings.scaffoldDone').replace('{path}', scaffold.target))
+              : null,
+            scaffold && scaffold.error ? h('span', { className: 'lb-warn' }, scaffold.error) : null),
           scan
             ? h('div', { className: 'lb-probe' },
                 scan.error ? h('p', { className: 'lb-warn' }, scan.error) : null,

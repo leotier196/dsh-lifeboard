@@ -164,6 +164,16 @@ const cands = r.value?.candidates ?? []
 check('扫描返回候选', Array.isArray(cands))
 check('扫描认得 TODO.md', cands.some((c) => c.key === 'todoFile'), JSON.stringify(cands.map((c) => c.key)))
 
+// 6.7) 生成示例目录：不碰现有文件（2026-11-10）
+r = await call('/api/lifeboard/scaffold', {})
+check('示例目录生成成功', r.ok === true && typeof r.value?.target === 'string', JSON.stringify(r).slice(0, 120))
+if (r.ok) {
+  const { stat: st2 } = await import('node:fs/promises')
+  const targetAbs = path.join(vault, r.value.target)
+  check('示例目录里确有 TODO.md', await st2(path.join(targetAbs, '_assistant', 'TODO.md')).then(() => true).catch(() => false))
+  check('示例目录里确有日志', await st2(path.join(targetAbs, '_assistant', 'life', 'log')).then((x) => x.isDirectory()).catch(() => false))
+}
+
 // 7) 示例数据预览（demoMode）：不读真实 vault，也能看到五卡效果
 r = await call('/api/lifeboard/settings', { action: 'save', values: { demoMode: true } })
 check('打开示例预览可保存', r.ok === true)

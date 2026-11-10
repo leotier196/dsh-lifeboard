@@ -1516,6 +1516,23 @@ export async function apply(ctx, config) {
     return json({ ok: true, value: { root, candidates, visited, timedOut: Date.now() > deadline } })
   }
 
+  /**
+   * 生成示例目录：POST /api/lifeboard/scaffold
+   * 在资料目录下建一份可直接照抄的结构（lifeboard-示例/），不触碰用户现有文件（2026-11-10）。
+   */
+  const scaffoldHandler = async () => {
+    const root = await resolveVaultRoot()
+    if (root === null || root === '') return json({ ok: false, error: { code: 'no-vault', message: '先指定资料目录' } }, 400)
+    const target = path.join(root, 'lifeboard-示例')
+    try {
+      const { ensureDemoVault } = await import('./demo-data.mjs')
+      await ensureDemoVault(target, RUNTIME_CONFIG?.demoCoverDir || '')
+      return json({ ok: true, value: { target: path.relative(root, target) } })
+    } catch (error) {
+      return json({ ok: false, error: { code: 'scaffold-failed', message: String(error) } }, 500)
+    }
+  }
+
   const probeHandler = async (req) => {
     let body = {}
     try { body = await req.json() } catch { /* 无 body 就按当前配置 */ }
@@ -1760,6 +1777,8 @@ export async function apply(ctx, config) {
   const okMood = registerRoute(ctx, '/api/lifeboard/mood', moodHandler, 'lifeboard: mood route')
   const okProbe = registerRoute(ctx, '/api/lifeboard/probe', probeHandler, 'lifeboard: probe route')
   const okScan = registerRoute(ctx, '/api/lifeboard/scan', scanHandler, 'lifeboard: scan route')
+  const okScaffold = registerRoute(ctx, '/api/lifeboard/scaffold', scaffoldHandler, 'lifeboard: scaffold route')
+  if (!okScaffold) ctx.logger?.warn('lifeboard: scaffold route unavailable')
   if (!okScan) ctx.logger?.warn('lifeboard: scan route unavailable')
   if (!okProbe) ctx.logger?.warn('lifeboard: probe route unavailable')
   if (!okBoard) ctx.logger?.warn('lifeboard: connection fetch route unavailable, board endpoint not registered')
