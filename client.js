@@ -494,7 +494,7 @@ window.__ModuleLoader__.load({
       if (!health || health.available !== true) {
         return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-success-primary,#12b76a)' } },
           h(CardHead, { icon: '🩺', title: t('health.title'), dot: false }),
-          h('p', { className: 'lb-note' }, absentNote(t, health.hint)),
+          h('p', { className: 'lb-note' }, absentNote(t, health?.hint)),
           h(SrcLink, { t, path: '_assistant/life/log/' }, t('source.health').replace('{date}', 'YYYY-MM-DD')))
       }
       const delta = health.weightDelta
@@ -570,7 +570,7 @@ window.__ModuleLoader__.load({
       if (!tasks || tasks.available !== true) {
         return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-business-primary,#7a5af8)' } },
           h(CardHead, { icon: '✅', title: t('tasks.title'), dot: false }),
-          h('p', { className: 'lb-note' }, absentNote(t, tasks.hint)),
+          h('p', { className: 'lb-note' }, absentNote(t, tasks?.hint)),
           h(SrcLink, { t, path: '_assistant/TODO.md' }, t('source.tasks')))
       }
       const items = Array.isArray(tasks.items) ? tasks.items : []
@@ -662,7 +662,7 @@ window.__ModuleLoader__.load({
       if (finance.available !== true) {
         return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-warning-primary,#f79009)' } },
           h(CardHead, { icon: '💰', title: t('finance.title'), dot: false }),
-          h('p', { className: 'lb-note' }, absentNote(t, finance.hint)),
+          h('p', { className: 'lb-note' }, absentNote(t, finance?.hint)),
           h(SrcLink, { t, path: '_assistant/life/private/消费流水.tsv' }, t('source.finance')))
       }
       const latest = finance.latest
@@ -736,7 +736,7 @@ window.__ModuleLoader__.load({
       if (!shelf || shelf.available !== true) {
         return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-business-primary,#6172f3)' } },
           h(CardHead, { icon: '📚', title: t('shelf.title'), dot: false }),
-          h('p', { className: 'lb-note' }, absentNote(t, shelf.hint)),
+          h('p', { className: 'lb-note' }, absentNote(t, shelf?.hint)),
           h(SrcLink, { t, path: '_assistant/notes/书架/' }, t('source.shelf')))
       }
       const [excerpt, setExcerpt] = useState(null)
@@ -757,7 +757,7 @@ window.__ModuleLoader__.load({
       })
       if (books.length === 0) {
         return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-business-primary,#6172f3)' } }, head,
-          h('p', { className: 'lb-note' }, absentNote(t, shelf.hint)),
+          h('p', { className: 'lb-note' }, absentNote(t, shelf?.hint)),
           h(SrcLink, { t, path: '_assistant/notes/书架/' }, t('source.shelf')))
       }
       return h('section', { className: 'lb-card lb-card-wide', style: { '--lb-accent': 'var(--dsw-alias-state-business-primary,#6172f3)' } }, head,
