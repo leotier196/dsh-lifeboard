@@ -308,7 +308,9 @@ window.__ModuleLoader__.load({
 .lb-checkin-btn:disabled{opacity:.5;cursor:default}
 .lb-spark-wrap{position:relative;height:38px}
 .lb-spark{width:100%;height:38px;display:block;color:var(--lb-accent);opacity:.95}
-.lb-spark-tip{position:absolute;top:0;transform:translate(-50%,-100%);padding:2px 7px;border-radius:6px;font:600 10.5px/1.4 var(--ds-font-family-code,ui-monospace,Menlo,monospace);color:#fff;background:color-mix(in srgb,var(--lb-accent) 82%,#000 18%);white-space:nowrap;pointer-events:none;box-shadow:0 4px 12px color-mix(in srgb,#000 18%,transparent)}
+.lb-spark-tip{position:absolute;top:0;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:1px;padding:3px 8px;border-radius:7px;color:#fff;background:color-mix(in srgb,var(--lb-accent) 84%,#000 16%);white-space:nowrap;pointer-events:none;box-shadow:0 4px 12px color-mix(in srgb,#000 18%,transparent)}
+.lb-spark-tip-d{font:500 9.5px/1.2 var(--ds-font-family-code,ui-monospace,Menlo,monospace);opacity:.78;font-style:normal}
+.lb-spark-tip-v{font:700 11.5px/1.25 var(--ds-font-family-code,ui-monospace,Menlo,monospace);font-variant-numeric:tabular-nums}
 .lb-spark-dot-hot{width:9px;height:9px;box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-1)}
 .lb-spark-dot{position:absolute;width:7px;height:7px;border-radius:50%;background:currentColor;color:var(--lb-accent);transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-1),0 0 0 3px color-mix(in srgb,var(--lb-accent) 25%,transparent)}
 .lb-spark-empty{height:34px;border-radius:6px;background:repeating-linear-gradient(90deg,var(--dsw-alias-border-l2) 0 1px,transparent 1px 12px);opacity:.5}
@@ -492,7 +494,9 @@ window.__ModuleLoader__.load({
           ? h('span', {
               className: 'lb-spark-tip',
               style: { left: ((coords[hover][0] / width) * 100).toFixed(2) + '%' },
-            }, pts[hover].date.slice(5) + ' · ' + pts[hover].weightKg + ' kg')
+            },
+              h('em', { className: 'lb-spark-tip-d' }, pts[hover].date.slice(5)),
+              h('b', { className: 'lb-spark-tip-v' }, pts[hover].weightKg + ' kg'))
           : null)
     }
 
