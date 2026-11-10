@@ -711,6 +711,77 @@ function parseBook(markdown) {
   return { title, author, category, added, level }
 }
 
+// ---------- 格式体检（2026-11-10） ----------
+/**
+ * 读用户实际文件，指出「差在哪」而不是只说「数据缺席」。
+ * 纯只读；任何异常都吞掉（体检失败不影响看板）。
+ */
+async function diagnose(vaultRoot) {
+  const out = []
+  const push = (card, code, message, expect, file) => out.push({ card, code, message, expect, file })
+
+  // 1) 每日日志
+  const logDirAbs = path.join(vaultRoot, PATHS.logDir)
+  if (!(await pathExists(logDirAbs))) {
+    push('health', 'log-missing', `没找到日志目录：${PATHS.logDir}`, '_assistant/life/log/2026-11-10.md', PATHS.logDir)
+  } else {
+    let latestFile = null
+    const now = new Date()
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
+      const f = path.join(logDirAbs, `${dayKey(d)}.md`)
+      if (await pathExists(f)) { latestFile = f; break }
+    }
+    if (latestFile === null) {
+      push('health', 'log-empty', '日志目录是空的（近 14 天没有 YYYY-MM-DD.md）', '_assistant/life/log/2026-11-10.md', PATHS.logDir)
+    } else {
+      let md = ''
+      try { md = await readFile(latestFile, 'utf8') } catch { /* 读不到就不诊断 */ }
+      md = normalizeDigits(md)
+      const secs = sectionsOf(md)
+      const healthText = [...secs.entries()].find(([k]) => k.startsWith('健康'))?.[1] ?? ''
+      if (!healthText) {
+        push('health', 'log-no-section', '日志里没有「## 健康」段', '## 健康\n\n| 指标 | 数值 |', path.relative(vaultRoot, latestFile))
+      } else if (tableCell(healthText, '体重').value === null) {
+        const inline = /体重[^\n]{0,16}?(\d+(?:\.\d+)?)\s*(?:kg|公斤|千克)/i.test(md)
+        push('health', inline ? 'log-inline' : 'log-label',
+          inline ? '「体重」写成了正文/列表，没有放进「健康」段的表格里' : '「健康」段里没有「体重」这一行',
+          '| 体重 | **69.5 kg** |\n| 体脂率 | **22.1%** |', path.relative(vaultRoot, latestFile))
+      }
+    }
+  }
+
+  // 2) 待办
+  const todoAbs = path.join(vaultRoot, PATHS.todoFile)
+  if (!(await pathExists(todoAbs))) {
+    push('tasks', 'todo-missing', `没找到待办文件：${PATHS.todoFile}`, '- [ ] 整理季度复盘 | 截止：2026-11-20 | #工作', PATHS.todoFile)
+  } else {
+    let md = ''
+    try { md = await readFile(todoAbs, 'utf8') } catch { /* skip */ }
+    if (md && !/^\s*[-*]\s*\[[ xX]\]/.test(md)) {
+      push('tasks', 'todo-nobox', '待办文件里没有复选框行（插件只认 `- [ ]` 开头的条目）', '- [ ] 整理季度复盘 | 截止：2026-11-20 | #工作', PATHS.todoFile)
+    }
+  }
+
+  // 3) 资产快照（常见错：列名/分隔符不对）
+  const assetsAbs = path.join(vaultRoot, PATHS.assetsFile)
+  if (PATHS.assetsFile && (await pathExists(assetsAbs))) {
+    let head = ''
+    try { head = (await readFile(assetsAbs, 'utf8')).split(/\r?\n/).find((l) => l.trim() !== '') ?? '' } catch { /* skip */ }
+    if (head && !(head.includes('\t') && head.includes('日期'))) {
+      push('assets', 'assets-cols', '资产表的表头不像 TSV（需要制表符分隔、首行含「日期 类别 名称 金额万」）', '日期\t类别\t名称\t金额万', PATHS.assetsFile)
+    }
+  }
+
+  // 4) 书架
+  const shelfAbs = path.join(vaultRoot, PATHS.shelfDir)
+  if (!(await pathExists(shelfAbs))) {
+    push('shelf', 'shelf-missing', `没找到书架目录：${PATHS.shelfDir}`, '_assistant/notes/书架/<书名>.md', PATHS.shelfDir)
+  }
+
+  return out
+}
+
 async function foldShelf(vaultRoot) {
   const dir = path.join(vaultRoot, PATHS.shelfDir)
   let dirMtimeMs
@@ -1111,6 +1182,7 @@ export async function apply(ctx, config) {
         mood: cardCfg.mood !== false,
         shelf: cardCfg.shelf !== false,
       }
+      const diagnostics = await diagnose(root).catch(() => [])
       const [health, tasks, shelf] = await Promise.all([
         foldHealth(root, windowDays),
         foldTasks(root),
@@ -1127,6 +1199,7 @@ export async function apply(ctx, config) {
           ...(wantFinance ? { finance: { ...(finance ?? {}), assets } } : {}),
           cards,
           demo: RUNTIME_CONFIG?.demoMode === true,
+          diagnostics,
         },
       })
     } catch (error) {

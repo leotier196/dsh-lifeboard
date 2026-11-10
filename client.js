@@ -30,6 +30,11 @@ window.__ModuleLoader__.load({
         'panel.format': '文件在，但没读到 {detail}（格式见 README）',
         'panel.vaultMissing': '未找到 vault（TODO.md 缺席），可在插件配置里指定 vaultRoot',
         'panel.loadFailed': '加载失败',
+        'panel.diagnose': '格式体检',
+        'panel.diagnoseHint': '下面这些地方跟插件约定不一致，所以对应卡片读不到数据；按右侧示例改一下即可。',
+        'panel.copyTemplate': '复制示例',
+        'panel.templateTitle': '格式示例（点开照抄）',
+        'panel.templateHint': '插件按固定格式解析；下面四段就是它认的样子，复制改成自己的即可。',
         'health.title': '健康',
         'health.weight': '体重',
         'health.noCompare': '无对比',
@@ -116,6 +121,11 @@ window.__ModuleLoader__.load({
         'panel.format': 'File found, but no {detail} parsed (see README for the format)',
         'panel.vaultMissing': 'Vault not found (TODO.md missing); set vaultRoot in plugin config',
         'panel.loadFailed': 'Load failed',
+        'panel.diagnose': 'Format check',
+        'panel.diagnoseHint': 'These spots do not match what the plugin expects, so the cards stay empty. Fix them against the sample on the right.',
+        'panel.copyTemplate': 'Copy sample',
+        'panel.templateTitle': 'Format samples (click to expand)',
+        'panel.templateHint': 'The parser expects these exact shapes. Copy a block and edit it.',
         'health.title': 'Health',
         'health.weight': 'Weight',
         'health.noCompare': 'no comparison',
@@ -215,6 +225,18 @@ window.__ModuleLoader__.load({
 .lb-cards{display:flex;gap:14px;flex-wrap:wrap;font-size:12px}
 .lb-check{display:flex;align-items:center;gap:6px;font-size:12px}
 .lb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
+.lb-diagnose{margin-bottom:14px}
+.lb-tpl{border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:8px 12px}
+.lb-tpl summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--dsw-alias-label-primary)}
+.lb-tpl-item{margin-top:10px}
+.lb-tpl-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
+.lb-tpl-file{font:500 10.5px/1.5 var(--ds-font-family-code,ui-monospace,Menlo,monospace);color:var(--dsw-alias-label-secondary)}
+.lb-tpl-copy{margin-left:auto;padding:2px 8px;font-size:11px}
+.lb-tpl-body{margin:6px 0 0;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-2) 80%,transparent);font:500 11px/1.6 var(--ds-font-family-code,ui-monospace,Menlo,monospace);white-space:pre-wrap;overflow-wrap:anywhere;color:var(--dsw-alias-label-secondary)}
+.lb-diag-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.lb-diag{display:flex;flex-direction:column;gap:4px;padding:8px 10px;border-radius:9px;background:color-mix(in srgb,var(--dsw-alias-bg-layer-2) 70%,transparent);border:1px solid var(--dsw-alias-border-l2)}
+.lb-diag-msg{font-size:12.5px;color:var(--dsw-alias-label-primary)}
+.lb-diag-expect{display:block;font:500 11px/1.5 var(--ds-font-family-code,ui-monospace,Menlo,monospace);color:var(--dsw-alias-label-secondary);overflow-wrap:anywhere}
 
 .lb-card{--lb-accent:var(--dsw-alias-brand-primary,#4d6bfe);position:relative;min-width:0;display:flex;flex-direction:column;gap:12px;padding:16px 18px 14px;border:1px solid var(--dsw-alias-border-l2);border-radius:14px;background:radial-gradient(120% 90% at 100% 0,color-mix(in srgb,var(--lb-accent) 8%,transparent),transparent 62%),linear-gradient(180deg,var(--dsw-alias-bg-layer-1),color-mix(in srgb,var(--dsw-alias-bg-layer-2) 60%,var(--dsw-alias-bg-layer-1)));transition:border-color .18s,box-shadow .18s,transform .18s;overflow:hidden}
 .lb-card:before{content:"";position:absolute;inset:0 0 auto;height:2px;background:linear-gradient(90deg,var(--lb-accent),color-mix(in srgb,var(--lb-accent) 20%,transparent) 55%,transparent);opacity:.9;box-shadow:0 0 12px color-mix(in srgb,var(--lb-accent) 45%,transparent)}
@@ -820,6 +842,18 @@ window.__ModuleLoader__.load({
           data && data.vaultMissing === true ? h('p', { className: 'lb-note lb-warn' }, t('panel.vaultMissing')) : null,
           data && data.demo === true ? h('p', { className: 'lb-note lb-warn' }, '示例数据 · 到「设置 → ' + t('panel.title') + '」关掉预览并填自己的路径') : null,
 
+          (Array.isArray(data?.diagnostics) && data.diagnostics.length > 0)
+            ? h('section', { className: 'lb-card lb-diagnose', style: { '--lb-accent': 'var(--dsw-alias-state-warning-primary,#f79009)' } },
+                h('div', { className: 'lb-card-head' },
+                  h('span', { className: 'lb-card-icon', 'aria-hidden': true }, '!'),
+                  h('h3', { className: 'lb-card-title' }, t('panel.diagnose')),
+                  h('span', { className: 'lb-card-tag' }, data.diagnostics.length + '')),
+                h('p', { className: 'lb-note' }, t('panel.diagnoseHint')),
+                h('ul', { className: 'lb-diag-list' },
+                  data.diagnostics.map((d) => h('li', { key: d.code + d.file, className: 'lb-diag' },
+                    h('span', { className: 'lb-diag-msg' }, d.message),
+                    d.expect ? h('code', { className: 'lb-diag-expect' }, d.expect.replace(/\\n/g, ' ⏎ ')) : null))))
+            : null,
           h('div', { className: 'lb-grid' },
             (cards.health ? h(HealthCard, { t, health: data ? data.health : null }) : null),
             (cards.tasks ? h(TasksCard, { t, tasks: data ? data.tasks : null, onChanged: reload }) : null),
@@ -885,6 +919,45 @@ window.__ModuleLoader__.load({
 
       if (form === null) return h('p', { className: 'lb-note' }, msg || '读取中…')
       const cards = Object.assign({ health: true, tasks: true, assets: true, mood: true, shelf: true }, form.cards || {})
+      // 格式示例：给不想读 README 的人一份可复制的模板（2026-11-10）
+      const TEMPLATES = [
+        ['每日日志', '_assistant/life/log/YYYY-MM-DD.md', `## 健康
+
+| 指标 | 数值 |
+|:--|:--|
+| 体重 | **69.5 kg** |
+| 体脂率 | **22.1%** |
+| 内脏脂肪 | **9 级** |
+| 骨盐率 | **4.0%** |
+| 心率 | **68** |
+
+## 睡眠
+
+- 睡了 7.5 小时
+
+## 情绪
+
+- **正常**
+
+## 运动
+
+- 慢跑 5.2 km
+
+## 饮食
+
+- 今日累计（日终）：蛋白 **~130g** · 热量 **~2100 kcal**`],
+        ['待办', '_assistant/TODO.md', `- [ ] 整理季度复盘 | 截止：2026-11-20 | #工作
+- [x] 续费服务器 | 完成：2026-11-09`],
+        ['资产', '_assistant/life/private/资产快照.tsv', `日期\t类别\t名称\t金额万
+2026-11-10\t基金\t全球股票指数\t32.0
+2026-11-10\t现金\t货币基金\t8.0`],
+        ['书架', '_assistant/notes/书架/书名.md', `# 系统之美
+
+> 作者：德内拉·梅多斯 · 分类：思维类 · 级别：原文级 · 加入：2026-10-20
+
+## 核心框架
+- 系统的三个要件：要素、连接、目标。`],
+      ]
       const CARD_LABELS = { health: '健康', tasks: '任务', assets: '资产', mood: '情绪·运动', shelf: '书架' }
       return h('div', { className: 'lb-settings' },
         h('p', { className: 'lb-note' }, '所有路径都相对 vault 根目录；文件不存在时对应卡片自动显示「暂无数据」。'),
@@ -902,6 +975,20 @@ window.__ModuleLoader__.load({
           Object.keys(CARD_LABELS).map((key) => h('label', { key, className: 'lb-check' },
             h('input', { type: 'checkbox', checked: cards[key] !== false, onChange: (e) => setCard(key, e.target.checked) }),
             h('span', null, CARD_LABELS[key])))),
+        h('details', { className: 'lb-tpl' },
+          h('summary', null, t('panel.templateTitle')),
+          h('p', { className: 'lb-note' }, t('panel.templateHint')),
+          TEMPLATES.map(([name, file, body]) => h('div', { key: name, className: 'lb-tpl-item' },
+            h('div', { className: 'lb-tpl-head' },
+              h('b', null, name),
+              h('code', { className: 'lb-tpl-file' }, file),
+              h('button', {
+                className: 'lb-refresh lb-tpl-copy',
+                onClick: () => {
+                  try { navigator.clipboard.writeText(body) } catch { /* 剪贴板不可用就手动选 */ }
+                },
+              }, t('panel.copyTemplate'))),
+            h('pre', { className: 'lb-tpl-body' }, body)))),
         h('label', { className: 'lb-check' },
           h('input', { type: 'checkbox', checked: form.demoMode === true, onChange: (e) => set('demoMode', e.target.checked) }),
           h('span', null, '示例数据预览（虚构人物，先看效果再配自己的路径）')),

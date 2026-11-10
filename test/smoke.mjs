@@ -192,6 +192,9 @@ check('三级标题也能解析体重', v2.health?.weightKg === 71.5)
 check('全角数字归一', v2.health?.vitals?.bodyFat === 22)
 check('睡眠支持 8h 写法', v2.health?.sleepAvgHours === 8)
 check('缺目录给出 no-file 提示（书架）', v2.shelf?.available === false && v2.shelf?.hint?.code === 'no-file')
+const diag2 = (await call2('/api/lifeboard/board', {})).value.diagnostics ?? []
+check('体检指出缺书架目录', diag2.some((d) => d.code === 'shelf-missing'))
+check('体检给出可复制的示例格式', diag2.every((d) => typeof d.message === 'string' && typeof d.expect === 'string' && d.expect.length > 0))
 
 await rm(tmp, { recursive: true, force: true })
 const failed = results.filter(([, ok]) => !ok)
