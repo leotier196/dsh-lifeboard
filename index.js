@@ -13,6 +13,7 @@
  */
 import { readFile, readdir, stat, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { parseHealth, findMetric } from './lib/parse.mjs'
 
 export const name = 'dsh-lifeboard'
 
@@ -205,8 +206,9 @@ function foldDay(date, markdown) {
   const sleep = [...sections.entries()].find(([k]) => k.startsWith('睡眠'))?.[1] ?? ''
   const sports = [...sections.entries()].find(([k]) => k.startsWith('运动'))?.[1] ?? ''
 
-  // 睡眠：7.5 小时 / 7.5h / 7.5 hours 都认（2026-11-10 容错）
-  const sleepMatch = /(\d+(?:\.\d+)?)\s*(?:小时|个?h(?:ours?|rs?)?(?![a-z]))/i.exec(sleep)
+  // 睡眠：7.5 小时 / 7.5h / 450 分钟 / sleep: 7.5 都认（2026-11-10 兼容层）
+  const sleepHit = findMetric(sleep, 'sleep')
+  const sleepMatch = !sleepHit && /(\d+(?:\.\d+)?)\s*(?:小时|个?h(?:ours?|rs?)?(?![a-z]))/i.exec(sleep)
   const exercised = sports.split(/\r?\n/).some((l) => l.trim().startsWith('-') && l.trim().length > 1)
   // 距离：兼容 km 与 m（如「室内步行 874 m」），并剔除「爬升 46m」这类高度写法（2026-11-09 修）
   let exerciseKm = null
@@ -230,17 +232,24 @@ function foldDay(date, markdown) {
     ? cleanTitle(moodLine.replace(/^-\s*/, '').replace(/（[^）]*(\d{1,2}:\d{2}|口述|实拍)[^）]*）/g, '')).slice(0, 24)
     : null
 
-  const boneSalt = tableCell(health, '骨盐率')
+  // 兼容层：表格 / 键值 / 列表 / 英文写法都认；健康段空白时回退到 YAML frontmatter（2026-11-10 M2）
+  let healthSource = health
+  if (healthSource.trim() === '') {
+    const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(markdown)
+    if (fm) healthSource = fm[1]
+  }
+  const metrics = parseHealth(healthSource)
+  const boneSaltCell = tableCell(health, '骨盐率') // 备注（不足/偏低）仍从表格取
   return {
     date,
-    weightKg: tableMetric(health, '体重'),
-    visceralFat: tableMetric(health, '内脏脂肪'),
-    bodyFat: tableMetric(health, '体脂率'),
-    boneSalt: boneSalt.value,
-    boneSaltNote: boneSalt.note,
-    heartRate: tableMetric(health, '心率'),
-    bmi: tableMetric(health, 'BMI'),
-    sleepHours: sleepMatch ? Number(sleepMatch[1]) : null,
+    weightKg: metrics.weight ?? null,
+    visceralFat: metrics.visceralFat ?? null,
+    bodyFat: metrics.bodyFat ?? null,
+    boneSalt: metrics.boneSalt ?? null,
+    boneSaltNote: boneSaltCell.note,
+    heartRate: metrics.heartRate ?? null,
+    bmi: metrics.bmi ?? null,
+    sleepHours: sleepHit ? sleepHit.value : sleepMatch ? Number(sleepMatch[1]) : null,
     exercised,
     exerciseKm: exerciseKm === null ? null : Math.round(exerciseKm * 1000) / 1000,
     moodText,

@@ -13,6 +13,7 @@
   "files": [
     "index.js",
     "demo-data.mjs",
+    "lib/*.mjs",
     "demo-covers/*.jpg",
     "client.js",
     "cordis.patch.yml",
