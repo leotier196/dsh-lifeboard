@@ -267,6 +267,16 @@ window.__ModuleLoader__.load({
 .lb-cards{display:flex;gap:14px;flex-wrap:wrap;font-size:12px}
 .lb-check{display:flex;align-items:center;gap:6px;font-size:12px}
 .lb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
+/* 深色下卡片需要"浮起来"：提亮一档 + 极淡白边（2026-11-10 M1 深色对照） */
+@media (prefers-color-scheme: dark){
+  .lb-card{background:color-mix(in srgb,var(--dsw-alias-bg-layer-1) 88%,#fff 6%);border-color:color-mix(in srgb,#fff 10%,transparent);box-shadow:0 1px 0 color-mix(in srgb,#fff 4%,transparent)}
+  .lb-card:hover{border-color:color-mix(in srgb,#fff 16%,transparent)}
+  .lb-stat{background:color-mix(in srgb,#fff 5%,transparent);border-color:color-mix(in srgb,#fff 8%,transparent)}
+  .lb-protein{background:color-mix(in srgb,#fff 4%,transparent);border-color:color-mix(in srgb,#fff 8%,transparent)}
+  .lb-quote{background:color-mix(in srgb,#fff 4%,transparent)}
+  .lb-row + .lb-row{border-top-color:color-mix(in srgb,#fff 8%,transparent)}
+}
+
 .lb-diagnose{margin-bottom:14px}
 .lb-scan{padding:10px 12px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 26%,transparent);border-radius:10px;background:color-mix(in srgb,var(--dsw-alias-brand-primary,#4d6bfe) 5%,transparent)}
 .lb-scan-btn{font-weight:600}
