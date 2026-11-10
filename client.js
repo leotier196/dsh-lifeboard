@@ -33,6 +33,8 @@ window.__ModuleLoader__.load({
         'panel.diagnose': '格式体检',
         'panel.diagnoseHint': '下面这些地方跟插件约定不一致，所以对应卡片读不到数据；按右侧示例改一下即可。',
         'panel.copyTemplate': '复制示例',
+        'panel.expand': '展开',
+        'panel.collapse': '收起',
         'panel.templateTitle': '格式示例（点开照抄）',
         'panel.templateHint': '插件按固定格式解析；下面四段就是它认的样子，复制改成自己的即可。',
         'health.title': '健康',
@@ -124,6 +126,8 @@ window.__ModuleLoader__.load({
         'panel.diagnose': 'Format check',
         'panel.diagnoseHint': 'These spots do not match what the plugin expects, so the cards stay empty. Fix them against the sample on the right.',
         'panel.copyTemplate': 'Copy sample',
+        'panel.expand': 'Show',
+        'panel.collapse': 'Hide',
         'panel.templateTitle': 'Format samples (click to expand)',
         'panel.templateHint': 'The parser expects these exact shapes. Copy a block and edit it.',
         'health.title': 'Health',
@@ -490,6 +494,24 @@ window.__ModuleLoader__.load({
       return t('panel.dataAbsent')
     }
 
+    // 格式体检：默认只占一行，点开才展开细节（2026-11-10 leo：原来太大，影响观感）
+    function DiagnoseBar({ t, items }) {
+      const [open, setOpen] = useState(false)
+      return h('section', { className: 'lb-diagnose' },
+        h('button', { className: 'lb-diag-bar', onClick: () => setOpen(!open), 'aria-expanded': open ? 'true' : 'false' },
+          h('span', { className: 'lb-diag-mark', 'aria-hidden': true }, '!'),
+          h('span', { className: 'lb-diag-text' }, t('panel.diagnose') + ' · ' + items.length),
+          h('span', { className: 'lb-diag-toggle' }, open ? t('panel.collapse') : t('panel.expand'))),
+        open
+          ? h('div', { className: 'lb-diag-panel' },
+              h('p', { className: 'lb-note' }, t('panel.diagnoseHint')),
+              h('ul', { className: 'lb-diag-list' },
+                items.map((d) => h('li', { key: d.code + d.file, className: 'lb-diag' },
+                  h('span', { className: 'lb-diag-msg' }, d.message),
+                  d.expect ? h('code', { className: 'lb-diag-expect' }, d.expect.replace(/\\n/g, ' ⏎ ')) : null))))
+          : null)
+    }
+
     function HealthCard({ t, health }) {
       if (!health || health.available !== true) {
         return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-success-primary,#12b76a)' } },
@@ -843,16 +865,7 @@ window.__ModuleLoader__.load({
           data && data.demo === true ? h('p', { className: 'lb-note lb-warn' }, '示例数据 · 到「设置 → ' + t('panel.title') + '」关掉预览并填自己的路径') : null,
 
           (Array.isArray(data?.diagnostics) && data.diagnostics.length > 0)
-            ? h('section', { className: 'lb-card lb-diagnose', style: { '--lb-accent': 'var(--dsw-alias-state-warning-primary,#f79009)' } },
-                h('div', { className: 'lb-card-head' },
-                  h('span', { className: 'lb-card-icon', 'aria-hidden': true }, '!'),
-                  h('h3', { className: 'lb-card-title' }, t('panel.diagnose')),
-                  h('span', { className: 'lb-card-tag' }, data.diagnostics.length + '')),
-                h('p', { className: 'lb-note' }, t('panel.diagnoseHint')),
-                h('ul', { className: 'lb-diag-list' },
-                  data.diagnostics.map((d) => h('li', { key: d.code + d.file, className: 'lb-diag' },
-                    h('span', { className: 'lb-diag-msg' }, d.message),
-                    d.expect ? h('code', { className: 'lb-diag-expect' }, d.expect.replace(/\\n/g, ' ⏎ ')) : null))))
+            ? h(DiagnoseBar, { t, items: data.diagnostics })
             : null,
           h('div', { className: 'lb-grid' },
             (cards.health ? h(HealthCard, { t, health: data ? data.health : null }) : null),
