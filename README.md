@@ -100,6 +100,49 @@ Paths are relative to `vaultRoot`. **A missing file shows "no data" on that card
 
 ---
 
+## Format compatibility
+
+You don't have to rewrite your notes. The parser tries several shapes, from strongest to weakest:
+
+| Shape | Example |
+|:--|:--|
+| Table | `\| 体重 \| 69.5 kg \|` |
+| Header table | `\| 体重(kg) \| 体脂率(%) \|` then a value row (Excel/Notion exports) |
+| Key-value | `体重：69.5kg` / `- **体重**：69.5` / `- 体重:: 69.5` (Obsidian) |
+| List | `- 体重 69.5 公斤` / `- 睡了 7.5 小时` |
+| English | `weight: 69.5` / `sleep 7.5h` |
+| YAML frontmatter | read when the health section is empty |
+| Inline sentence | `今天体重 69.5 公斤` — **off by default**, so stray numbers are never mistaken for weight |
+
+Units are converted for you: 斤→kg (÷2), lb→kg, 分钟→小时, m→公里.
+
+Verified against 10 differently-formatted sample logs: **100% recognised, 0 misreads** (`node test/samples.mjs`).
+
+## Field aliases
+
+If your notes use your own wording, add it in **Settings → Lifeboard → Field aliases**:
+
+```
+体重：我的体重, wt
+睡眠：睡眠时间
+```
+
+One line per field, comma-separated. Applies immediately after saving.
+
+## Auto-detect
+
+**Settings → Lifeboard → Auto-detect** walks your notes folder (depth ≤4, ≤5000 entries, 3 s budget) and scores candidates:
+
+- a folder with ≥3 `YYYY-MM-DD.md` files → daily log
+- `TODO.md` → todos
+- a `.tsv` whose header has 日期/类别/名称/金额万 → assets
+- many non-dated `.md` files → bookshelf
+- a `封面` subfolder → covers
+
+Each hit shows its evidence and a **Use** button; **Use all** fills everything at once. **Check these paths** then verifies each one.
+
+No structure yet? **Create samples** generates a `lifeboard-示例/` folder you can copy — it never touches your existing files.
+
 ## Data formats
 
 The parser expects fixed formats. A mismatch shows "no data" — that is a formatting issue, not a crash.
@@ -327,6 +370,49 @@ dsh plugin --profile <你的 profile> add dsh-lifeboard
 路径都相对 `vaultRoot`；**文件不存在时对应卡片显示「暂无数据」，不会报错、不会白屏**。
 
 ---
+
+### 格式兼容
+
+不用改你的笔记写法。插件按从强到弱依次尝试：
+
+| 写法 | 例子 |
+|:--|:--|
+| 表格 | `\| 体重 \| 69.5 kg \|` |
+| 表头式表格 | `\| 体重(kg) \| 体脂率(%) \|` 下一行给值（Excel/Notion 导出） |
+| 键值 | `体重：69.5kg` / `- **体重**：69.5` / `- 体重:: 69.5`（Obsidian） |
+| 列表 | `- 体重 69.5 公斤` / `- 睡了 7.5 小时` |
+| 英文 | `weight: 69.5` / `sleep 7.5h` |
+| YAML frontmatter | 健康段为空时回退读取 |
+| 正文里飘的句子 | `今天体重 69.5 公斤` —— **默认不采用**，避免把无关数字当体重 |
+
+单位自动换算：斤→kg（÷2）、磅→kg、分钟→小时、米→公里。
+
+拿 10 份不同写法的日志验证过：**识别率 100%，误读 0 条**（`node test/samples.mjs`）。
+
+### 字段映射
+
+你自己的叫法可以在 **设置 → 人生看板 → 字段映射** 里加：
+
+```
+体重：我的体重, wt
+睡眠：睡眠时间
+```
+
+一行一个字段，逗号分隔，保存即生效。
+
+### 自动扫描
+
+**设置 → 人生看板 → 自动扫描**：在资料目录里限量遍历（深度 ≤4、≤5000 项、3 秒上限），按特征打分——
+
+- 有 ≥3 个 `YYYY-MM-DD.md` 的目录 → 日志
+- `TODO.md` → 待办
+- TSV 表头含「日期/类别/名称/金额万」→ 资产
+- 一堆非日期命名的 `.md` → 书架
+- 名为「封面」的子目录 → 封面
+
+每条都会说明依据，给「用这个」；「全部采用」一次填完，再用「检查这些路径」复核。
+
+还没有结构？点 **生成示例目录**，会在 `lifeboard-示例/` 里建一份可照抄的样例，**不动你现有文件**。
 
 ### 数据格式
 
