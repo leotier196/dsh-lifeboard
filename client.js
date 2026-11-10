@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
   factory(require) {
     const React = require('react')
     const h = React.createElement
-    const { useState, useEffect, useCallback } = React
+    const { useState, useEffect, useCallback, useRef } = React
 
     const NS = 'lifeboard'
     const PANEL_KEY = 'lifeboard'
@@ -565,6 +565,30 @@ window.__ModuleLoader__.load({
         h('text', { x: 20, y: 24, 'text-anchor': 'middle', className: 'lb-ring-text' }, Math.round(goal.progress * 100) + '%'))
     }
 
+    /** 数字滚动：值变化时 250ms ease-out 过渡（M1 动效规范） */
+    function RollingNumber({ value, decimals = 1, prefix = '', suffix = '', className }) {
+      const [shown, setShown] = useState(typeof value === 'number' ? value : null)
+      const fromRef = useRef(typeof value === 'number' ? value : null)
+      useEffect(() => {
+        if (typeof value !== 'number') { setShown(null); fromRef.current = null; return }
+        const from = fromRef.current
+        if (from === null || from === value) { setShown(value); fromRef.current = value; return }
+        const t0 = (typeof performance !== 'undefined' ? performance.now() : Date.now())
+        let raf = 0
+        const tick = (t) => {
+          const p = Math.min(1, (t - t0) / 250)
+          const eased = 1 - Math.pow(1 - p, 3)
+          setShown(from + (value - from) * eased)
+          if (p < 1) raf = requestAnimationFrame(tick)
+          else fromRef.current = value
+        }
+        raf = requestAnimationFrame(tick)
+        return () => cancelAnimationFrame(raf)
+      }, [value])
+      if (shown === null) return h('span', { className }, prefix + '—')
+      return h('span', { className }, prefix + shown.toFixed(decimals) + suffix)
+    }
+
     // 空状态分三档：缺文件 / 目录空 / 格式对不上 —— 比一句「数据缺席」有用（2026-11-10）
     const absentNote = (t, hint) => {
       if (!hint || !hint.code) return t('panel.dataAbsent')
@@ -604,7 +628,7 @@ window.__ModuleLoader__.load({
       return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-success-primary,#12b76a)' } },
         h(CardHead, { icon: '🩺', title: t('health.title'), dot: true, tag: health.date }),
         h('p', { className: 'lb-metric' },
-          h('span', { className: 'lb-big' }, health.weightKg ?? '—'),
+          h(RollingNumber, { className: 'lb-big', value: health.weightKg, decimals: 1 }),
           h('span', { className: 'lb-unit' }, 'kg'),
           delta !== null && delta !== undefined
             ? h('span', { className: 'lb-delta ' + (delta > 0 ? 'lb-delta-up' : delta < 0 ? 'lb-delta-down' : '') },
@@ -777,7 +801,7 @@ window.__ModuleLoader__.load({
       return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-warning-primary,#f79009)' } },
         h(CardHead, { icon: '💰', title: t('finance.title'), dot: true, tag: finance.month }),
         h('p', { className: 'lb-metric' },
-          h('span', { className: 'lb-big' }, '¥' + finance.monthSpend.toLocaleString()),
+          h(RollingNumber, { className: 'lb-big', value: finance.monthSpend, decimals: 0, prefix: '¥' }),
           finance.monthInvest > 0 ? h('span', { className: 'lb-metric-sub' }, t('finance.invest') + ' ¥' + finance.monthInvest.toLocaleString()) : null),
         h('ul', { className: 'lb-stats' },
           h('li', { className: 'lb-stat' }, h('span', { className: 'lb-stat-k' }, t('finance.eatOut')), h('span', { className: 'lb-stat-v' }, finance.eatOutCount, h('small', null, t('finance.unitTimes')))),
