@@ -758,7 +758,7 @@ async function diagnose(vaultRoot) {
   } else {
     let md = ''
     try { md = await readFile(todoAbs, 'utf8') } catch { /* skip */ }
-    if (md && !/^\s*[-*]\s*\[[ xX]\]/.test(md)) {
+    if (md && !/^\s*[-*]\s*\[[ xX]\]/m.test(md)) {  // m 标志：逐行找，别只看第一行（误报修于 2026-11-10）
       push('tasks', 'todo-nobox', '待办文件里没有复选框行（插件只认 `- [ ]` 开头的条目）', '- [ ] 整理季度复盘 | 截止：2026-11-20 | #工作', PATHS.todoFile)
     }
   }

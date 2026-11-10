@@ -195,6 +195,7 @@ check('缺目录给出 no-file 提示（书架）', v2.shelf?.available === fals
 const diag2 = (await call2('/api/lifeboard/board', {})).value.diagnostics ?? []
 check('体检指出缺书架目录', diag2.some((d) => d.code === 'shelf-missing'))
 check('体检给出可复制的示例格式', diag2.every((d) => typeof d.message === 'string' && typeof d.expect === 'string' && d.expect.length > 0))
+check('有复选框的 TODO 不误报 todo-nobox', !diag2.some((d) => d.code === 'todo-nobox'))
 
 await rm(tmp, { recursive: true, force: true })
 const failed = results.filter(([, ok]) => !ok)
