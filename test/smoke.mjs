@@ -142,6 +142,22 @@ r = await call('/api/lifeboard/board', {})
 check('空 vault 返回 ok 且不抛错', r.ok === true)
 
 
+// 6.5) 路径体检：逐项告诉用户找到没（2026-11-10）
+r = await call('/api/lifeboard/probe', { values: {
+  vaultRoot: vault,
+  logDir: '_assistant/life/log',
+  todoFile: '_assistant/TODO.md',
+  assetsFile: '_assistant/life/private/资产快照.tsv',
+  financeFile: '_assistant/life/private/消费流水.tsv',
+  shelfDir: '_assistant/notes/书架',
+} })
+const probeItems = r.value?.items ?? []
+
+check('体检返回各项', probeItems.length >= 4)
+check('体检识别日志目录 ok', probeItems.find((i) => i.key === 'logDir')?.status === 'ok')
+check('体检识别待办 ok', probeItems.find((i) => i.key === 'todoFile')?.status === 'ok')
+check('体检识别资产表 ok', probeItems.find((i) => i.key === 'assetsFile')?.status === 'ok')
+
 // 7) 示例数据预览（demoMode）：不读真实 vault，也能看到五卡效果
 r = await call('/api/lifeboard/settings', { action: 'save', values: { demoMode: true } })
 check('打开示例预览可保存', r.ok === true)

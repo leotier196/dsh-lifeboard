@@ -33,6 +33,9 @@ window.__ModuleLoader__.load({
         'panel.diagnose': '格式体检',
         'panel.diagnoseHint': '下面这些地方跟插件约定不一致，所以对应卡片读不到数据；按右侧示例改一下即可。',
         'panel.copyTemplate': '复制示例',
+        'settings.probe': '检查这些路径',
+        'settings.probing': '检查中…',
+        'settings.probeHint': '按上面填的值直接查，不用先保存',
         'panel.expand': '展开',
         'panel.collapse': '收起',
         'panel.templateTitle': '格式示例（点开照抄）',
@@ -128,6 +131,9 @@ window.__ModuleLoader__.load({
         'panel.diagnose': 'Format check',
         'panel.diagnoseHint': 'These spots do not match what the plugin expects, so the cards stay empty. Fix them against the sample on the right.',
         'panel.copyTemplate': 'Copy sample',
+        'settings.probe': 'Check these paths',
+        'settings.probing': 'Checking…',
+        'settings.probeHint': 'Uses the values above without saving first',
         'panel.expand': 'Show',
         'panel.collapse': 'Hide',
         'panel.templateTitle': 'Format samples (click to expand)',
@@ -234,6 +240,16 @@ window.__ModuleLoader__.load({
 .lb-check{display:flex;align-items:center;gap:6px;font-size:12px}
 .lb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
 .lb-diagnose{margin-bottom:14px}
+.lb-probe-row{align-items:center}
+.lb-probe{display:flex;flex-direction:column;gap:4px;padding:8px 10px;border:1px solid var(--dsw-alias-border-l2);border-radius:9px;font-size:11.5px}
+.lb-probe-row-item{display:flex;align-items:center;gap:7px;min-width:0}
+.lb-probe-dot{flex:none;width:7px;height:7px;border-radius:50%}
+.lb-probe-ok{background:var(--dsw-alias-state-success-primary,#12b76a)}
+.lb-probe-empty{background:var(--dsw-alias-state-warning-primary,#f79009)}
+.lb-probe-missing{background:var(--dsw-alias-state-error-primary,#f04438)}
+.lb-probe-format{background:var(--dsw-alias-state-warning-primary,#f79009)}
+.lb-probe-path{flex:none;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;color:var(--dsw-alias-label-secondary)}
+.lb-probe-detail{color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lb-tpl{border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:8px 12px}
 .lb-tpl summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--dsw-alias-label-primary)}
 .lb-tpl-item{margin-top:10px}
@@ -943,6 +959,8 @@ window.__ModuleLoader__.load({
       const [form, setForm] = useState(null)
       const [msg, setMsg] = useState('')
       const [saving, setSaving] = useState(false)
+      const [probing, setProbing] = useState(false)
+      const [probe, setProbe] = useState(null)
 
       const load = useCallback(() => {
         fetch('api/lifeboard/settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{"action":"get"}' })
@@ -954,6 +972,17 @@ window.__ModuleLoader__.load({
 
       const set = (key, value) => setForm((f) => Object.assign({}, f, { [key]: value }))
       const setCard = (key, value) => setForm((f) => Object.assign({}, f, { cards: Object.assign({}, f.cards, { [key]: value }) }))
+
+      // 按当前表单值检查一遍路径，不用先保存（2026-11-10 易用性）
+      const runProbe = () => {
+        setProbing(true)
+        setProbe(null)
+        fetch('api/lifeboard/probe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ values: form }) })
+          .then((r) => r.json())
+          .then((v) => setProbe(v && v.ok ? v.value : { items: [], error: (v && v.error && v.error.message) || '检查失败' }))
+          .catch(() => setProbe({ items: [], error: '检查失败' }))
+          .finally(() => setProbing(false))
+      }
 
       const save = () => {
         setSaving(true)
@@ -1023,6 +1052,18 @@ window.__ModuleLoader__.load({
           Object.keys(CARD_LABELS).map((key) => h('label', { key, className: 'lb-check' },
             h('input', { type: 'checkbox', checked: cards[key] !== false, onChange: (e) => setCard(key, e.target.checked) }),
             h('span', null, CARD_LABELS[key])))),
+        h('div', { className: 'lb-field-row lb-probe-row' },
+          h('button', { className: 'lb-refresh', onClick: runProbe, disabled: probing || form === null },
+            probing ? t('settings.probing') : t('settings.probe')),
+          h('span', { className: 'lb-note' }, t('settings.probeHint'))),
+        probe
+          ? h('div', { className: 'lb-probe' },
+              probe.error ? h('p', { className: 'lb-warn' }, probe.error) : null,
+              (probe.items ?? []).map((it) => h('div', { key: it.key, className: 'lb-probe-row-item' },
+                h('span', { className: 'lb-probe-dot lb-probe-' + it.status, 'aria-hidden': true }),
+                h('code', { className: 'lb-probe-path' }, it.path),
+                h('span', { className: 'lb-probe-detail' }, it.detail))))
+          : null,
         h('details', { className: 'lb-tpl' },
           h('summary', null, t('panel.templateTitle')),
           h('p', { className: 'lb-note' }, t('panel.templateHint')),

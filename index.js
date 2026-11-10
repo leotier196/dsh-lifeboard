@@ -199,7 +199,7 @@ function tableCell(sectionText, label) {
 const tableMetric = (sectionText, label) => tableCell(sectionText, label).value
 
 function foldDay(date, markdown) {
-  markdown = normalizeDigits(markdown)
+  markdown = normalizeDigits(markdown).replace(/^\uFEFF/, '')
   const sections = sectionsOf(markdown)
   const health = [...sections.entries()].find(([k]) => k.startsWith('健康'))?.[1] ?? ''
   const sleep = [...sections.entries()].find(([k]) => k.startsWith('睡眠'))?.[1] ?? ''
@@ -461,6 +461,7 @@ function classifyGroup(line) {
 }
 
 function foldTodo(markdown) {
+  markdown = String(markdown).replace(/^\uFEFF/, '')
   const open = []
   for (const line of markdown.split(/\r?\n/)) {
     if (!/^- \[ \]/.test(line)) continue
@@ -1409,6 +1410,87 @@ export async function apply(ctx, config) {
    * 无当日文件/无情绪段时自动创建。写完失效该文件缓存。
    */
   const MOODS = ['饱满', '正常', '一般', '低迷']
+  /**
+   * 路径体检：POST /api/lifeboard/probe {values?}
+   * 用户在设置页填完路径点「检查」，立刻知道每项找到没、能读到几条（2026-11-10 易用性）。
+   */
+  const probeHandler = async (req) => {
+    let body = {}
+    try { body = await req.json() } catch { /* 无 body 就按当前配置 */ }
+    const vals = (body && typeof body.values === 'object' && body.values) || {}
+    const pickPath = (key) => {
+      const v = typeof vals[key] === 'string' ? vals[key].trim() : ''
+      if (v !== '') return v
+      const cfg = typeof RUNTIME_CONFIG?.[key] === 'string' ? RUNTIME_CONFIG[key].trim() : ''
+      return cfg !== '' ? cfg : (DEFAULT_PATHS[key] ?? '')
+    }
+    const root = (typeof vals.vaultRoot === 'string' && vals.vaultRoot.trim() !== '')
+      ? vals.vaultRoot.trim()
+      : await resolveVaultRoot()
+    if (root === null || root === '') return json({ ok: true, value: { vaultMissing: true, items: [] } })
+
+    const items = []
+    const rel = (p) => (p && p.startsWith(root) ? path.relative(root, p) : p)
+    const statOf = async (abs) => { try { return await stat(abs) } catch { return null } }
+
+    // 日志目录：目录在不在 + 近 14 天几份 + 最新日期
+    {
+      const abs = path.join(root, pickPath('logDir'))
+      const st = await statOf(abs)
+      if (st === null) items.push({ key: 'logDir', status: 'missing', path: rel(abs), detail: '目录不存在' })
+      else if (!st.isDirectory()) items.push({ key: 'logDir', status: 'format', path: rel(abs), detail: '这是个文件，不是目录' })
+      else {
+        const now = new Date()
+        let files = 0
+        let latest = null
+        for (let i = 0; i < 14; i++) {
+          const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
+          const k = dayKey(d)
+          if (await statOf(path.join(abs, `${k}.md`))) { files += 1; if (latest === null) latest = k }
+        }
+        items.push({ key: 'logDir', status: files > 0 ? 'ok' : 'empty', path: rel(abs), detail: files > 0 ? `近 14 天 ${files} 份，最新 ${latest}` : '近 14 天没有 YYYY-MM-DD.md' })
+      }
+    }
+
+    // 待办：文件在不在 + 未完成条数
+    {
+      const abs = path.join(root, pickPath('todoFile'))
+      const st = await statOf(abs)
+      if (st === null) items.push({ key: 'todoFile', status: 'missing', path: rel(abs), detail: '文件不存在' })
+      else {
+        let md = ''
+        try { md = await readFile(abs, 'utf8') } catch { /* skip */ }
+        const open = (md.match(/^\s*[-*]\s*\[[ ]\]/gm) ?? []).length
+        items.push({ key: 'todoFile', status: md.trim() === '' ? 'empty' : 'ok', path: rel(abs), detail: md.trim() === '' ? '文件是空的' : `未完成 ${open} 条` })
+      }
+    }
+
+    // 资产 / 消费：TSV 表头
+    for (const key of ['assetsFile', 'financeFile']) {
+      const abs = path.join(root, pickPath(key))
+      const st = await statOf(abs)
+      if (st === null) { items.push({ key, status: 'missing', path: rel(abs), detail: '文件不存在（这张卡会隐藏，属正常）' }); continue }
+      let head = ''
+      try { head = (await readFile(abs, 'utf8')).split(/\r?\n/).find((l) => l.trim() !== '') ?? '' } catch { /* skip */ }
+      const okHead = head.includes('\t')
+      items.push({ key, status: okHead ? 'ok' : 'format', path: rel(abs), detail: okHead ? '制表符分隔，可读' : '不是 TSV（需要制表符分隔）' })
+    }
+
+    // 书架：目录 + .md 数量
+    {
+      const abs = path.join(root, pickPath('shelfDir'))
+      const st = await statOf(abs)
+      if (st === null) items.push({ key: 'shelfDir', status: 'missing', path: rel(abs), detail: '目录不存在' })
+      else {
+        let names = []
+        try { names = (await readdir(abs)).filter((n) => n.endsWith('.md')) } catch { /* skip */ }
+        items.push({ key: 'shelfDir', status: names.length > 0 ? 'ok' : 'empty', path: rel(abs), detail: names.length > 0 ? `${names.length} 本` : '目录里没有 .md' })
+      }
+    }
+
+    return json({ ok: true, value: { root, items } })
+  }
+
   const moodHandler = async (req) => {
     const root = await resolveVaultRoot()
     if (root === null) return json({ ok: false, error: { code: 'lifeboard/vault-missing' } }, 404)
@@ -1571,6 +1653,8 @@ export async function apply(ctx, config) {
   const okTask = registerRoute(ctx, '/api/lifeboard/task', taskHandler, 'lifeboard: task route')
   const okExcerpt = registerRoute(ctx, '/api/lifeboard/excerpt', excerptHandler, 'lifeboard: excerpt route')
   const okMood = registerRoute(ctx, '/api/lifeboard/mood', moodHandler, 'lifeboard: mood route')
+  const okProbe = registerRoute(ctx, '/api/lifeboard/probe', probeHandler, 'lifeboard: probe route')
+  if (!okProbe) ctx.logger?.warn('lifeboard: probe route unavailable')
   if (!okBoard) ctx.logger?.warn('lifeboard: connection fetch route unavailable, board endpoint not registered')
   if (!okCover) ctx.logger?.warn('lifeboard: connection fetch route unavailable, cover endpoint not registered')
   if (!okOpen) ctx.logger?.warn('lifeboard: connection fetch route unavailable, open endpoint not registered')
