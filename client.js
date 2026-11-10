@@ -308,6 +308,8 @@ window.__ModuleLoader__.load({
 .lb-checkin-btn:disabled{opacity:.5;cursor:default}
 .lb-spark-wrap{position:relative;height:38px}
 .lb-spark{width:100%;height:38px;display:block;color:var(--lb-accent);opacity:.95}
+.lb-spark-tip{position:absolute;top:0;transform:translate(-50%,-100%);padding:2px 7px;border-radius:6px;font:600 10.5px/1.4 var(--ds-font-family-code,ui-monospace,Menlo,monospace);color:#fff;background:color-mix(in srgb,var(--lb-accent) 82%,#000 18%);white-space:nowrap;pointer-events:none;box-shadow:0 4px 12px color-mix(in srgb,#000 18%,transparent)}
+.lb-spark-dot-hot{width:9px;height:9px;box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-1)}
 .lb-spark-dot{position:absolute;width:7px;height:7px;border-radius:50%;background:currentColor;color:var(--lb-accent);transform:translate(-50%,-50%);box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-1),0 0 0 3px color-mix(in srgb,var(--lb-accent) 25%,transparent)}
 .lb-spark-empty{height:34px;border-radius:6px;background:repeating-linear-gradient(90deg,var(--dsw-alias-border-l2) 0 1px,transparent 1px 12px);opacity:.5}
 .lb-spark-label{font:500 9.5px/1 var(--ds-font-family-code,ui-monospace,SFMono-Regular,Menlo,monospace);letter-spacing:.08em;color:var(--dsw-alias-label-tertiary,var(--dsw-alias-label-secondary));text-transform:uppercase}
@@ -458,25 +460,40 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function Sparkline({ values }) {
-      const pts = values.filter((v) => typeof v === 'number')
+    function Sparkline({ series }) {
+      const pts = (Array.isArray(series) ? series : []).filter((d) => typeof d.weightKg === 'number')
+      const [hover, setHover] = useState(null)
       if (pts.length < 2) return h('div', { className: 'lb-spark-empty', 'aria-hidden': true })
       const width = 200
       const height = 34
-      const min = Math.min(...pts)
-      const max = Math.max(...pts)
+      const vals = pts.map((d) => d.weightKg)
+      const min = Math.min(...vals)
+      const max = Math.max(...vals)
       const span = max - min || 1
       const step = width / (pts.length - 1)
-      const coords = pts.map((v, i) => [i * step, height - 3 - ((v - min) / span) * (height - 8)])
+      const coords = vals.map((v, i) => [i * step, height - 3 - ((v - min) / span) * (height - 8)])
       const points = coords.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')
       const [lastX, lastY] = coords[coords.length - 1]
-      // 面积填充让趋势线有"体积感"，末端点标出最新一次读数（2026-11-10）
-      return h('div', { className: 'lb-spark-wrap' },
+      // 悬停：按鼠标横向位置吸附到最近的一天（2026-11-10 leo 要「趋势图上的悬停数字」）
+      const pick = (event) => {
+        const rect = event.currentTarget.getBoundingClientRect()
+        if (rect.width <= 0) return
+        const ratio = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width))
+        setHover(Math.round(ratio * (pts.length - 1)))
+      }
+      const hot = hover === null ? null : coords[hover]
+      return h('div', { className: 'lb-spark-wrap', onMouseMove: pick, onMouseLeave: () => setHover(null) },
         h('svg', { className: 'lb-spark', viewBox: `0 0 ${width} ${height}`, preserveAspectRatio: 'none', 'aria-hidden': true },
           h('polygon', { points: `${points} ${width},${height} 0,${height}`, fill: 'currentColor', opacity: 0.12, stroke: 'none' }),
           h('polyline', { points, fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' })),
-        // 端点用 CSS 圆：SVG 被横向拉伸时 circle 会变椭圆，这里不受影响
-        h('i', { className: 'lb-spark-dot', style: { left: ((lastX / width) * 100).toFixed(2) + '%', top: ((lastY / height) * 100).toFixed(2) + '%' } }))
+        hot ? h('i', { className: 'lb-spark-dot lb-spark-dot-hot', style: { left: ((hot[0] / width) * 100).toFixed(2) + '%', top: ((hot[1] / height) * 100).toFixed(2) + '%' } }) : null,
+        h('i', { className: 'lb-spark-dot', style: { left: ((lastX / width) * 100).toFixed(2) + '%', top: ((lastY / height) * 100).toFixed(2) + '%' } }),
+        hover !== null
+          ? h('span', {
+              className: 'lb-spark-tip',
+              style: { left: ((coords[hover][0] / width) * 100).toFixed(2) + '%' },
+            }, pts[hover].date.slice(5) + ' · ' + pts[hover].weightKg + ' kg')
+          : null)
     }
 
     // ---------- 卡片 ----------
@@ -552,7 +569,7 @@ window.__ModuleLoader__.load({
           : null),
         h('div', null,
           h('span', { className: 'lb-spark-label' }, t('health.trend')),
-          h(Sparkline, { values: weights })),
+          h(Sparkline, { series: health.series })),
         h('ul', { className: 'lb-stats lb-stats-6' },
           h('li', { className: 'lb-stat' }, h('span', { className: 'lb-stat-k' }, t('health.bodyFat')), h('span', { className: 'lb-stat-v' }, health.vitals?.bodyFat ?? '—', h('small', null, '%'))),
           h('li', { className: 'lb-stat' }, h('span', { className: 'lb-stat-k' }, t('health.visceralFat')), h('span', { className: 'lb-stat-v' }, health.vitals?.visceralFat ?? health.visceralFat ?? '—', h('small', null, '级'))),
