@@ -64,6 +64,9 @@ Or use **Plugins → Add plugin** and enter `dsh-lifeboard`. Restart DSH; a "Lif
 
 ## Configuration
 
+> **You don't need this folder structure.** `_assistant/...` below is just an example — any folder works.
+> Open **Settings → Lifeboard** and hit **Auto-detect**: it scans your notes folder and fills the paths in.
+
 All optional. Edit in **Settings → Lifeboard**, or set defaults in your profile's `cordis.patch.yml`:
 
 ```yaml
@@ -288,6 +291,9 @@ dsh plugin --profile <你的 profile> add dsh-lifeboard
 ---
 
 ### 配置
+
+> **不必照抄下面这套目录结构。** `_assistant/...` 只是示例，任何文件夹都行。
+> 打开 **设置 → 人生看板**，点 **自动扫描**，它会自己找好并填上。
 
 全部可选，在 **设置 → 人生看板** 里改，或写进 profile 的 `cordis.patch.yml`：
 
