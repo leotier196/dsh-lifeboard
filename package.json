@@ -4,6 +4,9 @@
   "private": false,
   "type": "module",
   "description": "人生看板 · 把 markdown 日志/TODO/资产表折叠成一块只读面板：健康、任务、资产、情绪、书架五张卡；财务卡默认不读，数据不出本机",
+  "engines": {
+    "node": ">=20"
+  },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
