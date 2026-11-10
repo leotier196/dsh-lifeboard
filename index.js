@@ -144,6 +144,10 @@ function json(value, status = 200) {
 
 const DATE_RE = /(\d{4})-(\d{2})-(\d{2})/
 const pad = (n) => String(n).padStart(2, '0')
+/** 全角数字/句点 → 半角：手打日志里常见「７２．５」（2026-11-10 容错） */
+const pathExists = async (abs) => { try { await stat(abs); return true } catch { return false } }
+const normalizeDigits = (text) => String(text).replace(/[０-９．]/g, (c) =>
+  c === '．' ? '.' : String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
 const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 
 /** 从「2026-11-04 上午」这类串里取 YYYY-MM-DD */
@@ -161,10 +165,14 @@ let cfgFatGoalKg = 6.1 // 可在 row config 用 fatGoalKg 覆盖
 let todoCache = null // { mtimeMs, value }
 
 function sectionsOf(markdown) {
+  const lines = markdown.split(/\r?\n/)
+  // 正常按二级标题切；整篇一个 ## 都没有时，退回任意级别（### 健康 / # 健康 也认）
+  const hasH2 = lines.some((l) => /^##(?!#)\s+/.test(l))
+  const head = hasH2 ? /^##(?!#)\s+(.+?)\s*$/ : /^#{1,4}\s+(.+?)\s*$/
   const map = new Map()
   let current = ''
-  for (const line of markdown.split(/\r?\n/)) {
-    const h = /^##\s+(.+?)\s*$/.exec(line)
+  for (const line of lines) {
+    const h = head.exec(line)
     if (h) {
       current = h[1]
       if (!map.has(current)) map.set(current, '')
@@ -191,12 +199,14 @@ function tableCell(sectionText, label) {
 const tableMetric = (sectionText, label) => tableCell(sectionText, label).value
 
 function foldDay(date, markdown) {
+  markdown = normalizeDigits(markdown)
   const sections = sectionsOf(markdown)
   const health = [...sections.entries()].find(([k]) => k.startsWith('健康'))?.[1] ?? ''
   const sleep = [...sections.entries()].find(([k]) => k.startsWith('睡眠'))?.[1] ?? ''
   const sports = [...sections.entries()].find(([k]) => k.startsWith('运动'))?.[1] ?? ''
 
-  const sleepMatch = /(\d+(?:\.\d+)?)\s*小时/.exec(sleep)
+  // 睡眠：7.5 小时 / 7.5h / 7.5 hours 都认（2026-11-10 容错）
+  const sleepMatch = /(\d+(?:\.\d+)?)\s*(?:小时|个?h(?:ours?|rs?)?(?![a-z]))/i.exec(sleep)
   const exercised = sports.split(/\r?\n/).some((l) => l.trim().startsWith('-') && l.trim().length > 1)
   // 距离：兼容 km 与 m（如「室内步行 874 m」），并剔除「爬升 46m」这类高度写法（2026-11-09 修）
   let exerciseKm = null
@@ -266,7 +276,10 @@ async function foldHealth(vaultRoot, windowDays) {
     const day = await readLogDay(vaultRoot, dayKey(d))
     if (day) days.push(day)
   }
-  if (days.length === 0) return { available: false }
+  if (days.length === 0) {
+    const dirAbs = path.join(vaultRoot, PATHS.logDir)
+    return { available: false, hint: { code: (await pathExists(dirAbs)) ? 'no-recent' : 'no-file', path: dirAbs } }
+  }
 
   const withWeight = days.filter((d) => d.weightKg !== null)
   const latest = days[0]
@@ -276,8 +289,12 @@ async function foldHealth(vaultRoot, windowDays) {
     ? Math.round((sleepDays.reduce((s, d) => s + (d.sleepHours ?? 0), 0) / sleepDays.length) * 10) / 10
     : null
 
+  const formatHint = latest.weightKg === null
+    ? { code: 'format', path: path.join(vaultRoot, PATHS.logDir, `${latest.date}.md`), detail: '体重 / 体脂率' }
+    : undefined
   return {
     available: true,
+    hint: formatHint,
     date: latest.date,
     weightKg: latest.weightKg,
     weightDelta: latest.weightKg !== null && previous?.weightKg != null
@@ -374,6 +391,7 @@ function cleanTitle(raw) {
 
 /** 每日蛋白：优先「全天蛋白」行；其次「累计」行的当日累计；否则按「估算」行求和 */
 function foldProtein(markdown) {
+  markdown = normalizeDigits(markdown)
   // 全文扫描：晚餐块可能被追加到任意段落下（实测 11-03 落在「运动」段后），
   // 只认饮食段会漏掉「全天蛋白」总账。蛋白质率等体征行已排除。
   const lines = markdown.split(/\r?\n/)
@@ -485,7 +503,7 @@ async function foldTasks(vaultRoot) {
   try {
     mtimeMs = (await stat(file)).mtimeMs
   } catch {
-    return { available: false }
+    return { available: false, hint: { code: 'no-file', path: file } }
   }
   if (todoCache && todoCache.mtimeMs === mtimeMs) return todoCache.value
   let value
@@ -699,7 +717,7 @@ async function foldShelf(vaultRoot) {
   try {
     dirMtimeMs = (await stat(dir)).mtimeMs
   } catch {
-    return { available: false }
+    return { available: false, hint: { code: 'no-file', path: dir } }
   }
   let names
   if (shelfListingCache && shelfListingCache.dirMtimeMs === dirMtimeMs) {

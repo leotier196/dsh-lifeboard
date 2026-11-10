@@ -25,6 +25,9 @@ window.__ModuleLoader__.load({
         'panel.refreshing': '刷新中…',
         'panel.updated': '更新于 {t}',
         'panel.dataAbsent': '数据缺席',
+        'panel.noFile': '找不到文件：{path}',
+        'panel.noRecent': '目录里没有近几天的日志',
+        'panel.format': '文件在，但没读到 {detail}（格式见 README）',
         'panel.vaultMissing': '未找到 vault（TODO.md 缺席），可在插件配置里指定 vaultRoot',
         'panel.loadFailed': '加载失败',
         'health.title': '健康',
@@ -108,6 +111,9 @@ window.__ModuleLoader__.load({
         'panel.refreshing': 'Refreshing…',
         'panel.updated': 'updated {t}',
         'panel.dataAbsent': 'Data absent',
+        'panel.noFile': 'File not found: {path}',
+        'panel.noRecent': 'No logs in the last few days',
+        'panel.format': 'File found, but no {detail} parsed (see README for the format)',
         'panel.vaultMissing': 'Vault not found (TODO.md missing); set vaultRoot in plugin config',
         'panel.loadFailed': 'Load failed',
         'health.title': 'Health',
@@ -200,6 +206,7 @@ window.__ModuleLoader__.load({
 .lb-refresh:focus-visible{outline:2px solid var(--dsw-alias-brand-primary,#4d6bfe);outline-offset:2px}
 .lb-note{color:var(--dsw-alias-label-secondary);font-size:12px;margin:0}
 .lb-warn{color:var(--dsw-alias-state-error-primary,var(--dsw-alias-label-primary));font-weight:600}
+.lb-note{overflow-wrap:anywhere}
 .lb-settings{display:flex;flex-direction:column;gap:10px;max-width:560px}
 .lb-field{display:flex;flex-direction:column;gap:4px;font-size:12px}
 .lb-field-k{color:var(--dsw-alias-label-secondary)}
@@ -446,11 +453,20 @@ window.__ModuleLoader__.load({
         h('text', { x: 20, y: 24, 'text-anchor': 'middle', className: 'lb-ring-text' }, Math.round(goal.progress * 100) + '%'))
     }
 
+    // 空状态分三档：缺文件 / 目录空 / 格式对不上 —— 比一句「数据缺席」有用（2026-11-10）
+    const absentNote = (t, hint) => {
+      if (!hint || !hint.code) return t('panel.dataAbsent')
+      if (hint.code === 'no-file') return t('panel.noFile').replace('{path}', hint.path ?? '')
+      if (hint.code === 'no-recent') return t('panel.noRecent')
+      if (hint.code === 'format') return t('panel.format').replace('{detail}', hint.detail ?? '')
+      return t('panel.dataAbsent')
+    }
+
     function HealthCard({ t, health }) {
       if (!health || health.available !== true) {
         return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-success-primary,#12b76a)' } },
           h(CardHead, { icon: '🩺', title: t('health.title'), dot: false }),
-          h('p', { className: 'lb-note' }, t('panel.dataAbsent')),
+          h('p', { className: 'lb-note' }, absentNote(t, health.hint)),
           h(SrcLink, { t, path: '_assistant/life/log/' }, t('source.health').replace('{date}', 'YYYY-MM-DD')))
       }
       const delta = health.weightDelta
@@ -526,7 +542,7 @@ window.__ModuleLoader__.load({
       if (!tasks || tasks.available !== true) {
         return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-business-primary,#7a5af8)' } },
           h(CardHead, { icon: '✅', title: t('tasks.title'), dot: false }),
-          h('p', { className: 'lb-note' }, t('panel.dataAbsent')),
+          h('p', { className: 'lb-note' }, absentNote(t, tasks.hint)),
           h(SrcLink, { t, path: '_assistant/TODO.md' }, t('source.tasks')))
       }
       const items = Array.isArray(tasks.items) ? tasks.items : []
@@ -618,7 +634,7 @@ window.__ModuleLoader__.load({
       if (finance.available !== true) {
         return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-warning-primary,#f79009)' } },
           h(CardHead, { icon: '💰', title: t('finance.title'), dot: false }),
-          h('p', { className: 'lb-note' }, t('panel.dataAbsent')),
+          h('p', { className: 'lb-note' }, absentNote(t, finance.hint)),
           h(SrcLink, { t, path: '_assistant/life/private/消费流水.tsv' }, t('source.finance')))
       }
       const latest = finance.latest
@@ -692,7 +708,7 @@ window.__ModuleLoader__.load({
       if (!shelf || shelf.available !== true) {
         return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-business-primary,#6172f3)' } },
           h(CardHead, { icon: '📚', title: t('shelf.title'), dot: false }),
-          h('p', { className: 'lb-note' }, t('panel.dataAbsent')),
+          h('p', { className: 'lb-note' }, absentNote(t, shelf.hint)),
           h(SrcLink, { t, path: '_assistant/notes/书架/' }, t('source.shelf')))
       }
       const [excerpt, setExcerpt] = useState(null)
@@ -713,7 +729,7 @@ window.__ModuleLoader__.load({
       })
       if (books.length === 0) {
         return h('section', { className: 'lb-card', style: { '--lb-accent': 'var(--dsw-alias-state-business-primary,#6172f3)' } }, head,
-          h('p', { className: 'lb-note' }, t('panel.dataAbsent')),
+          h('p', { className: 'lb-note' }, absentNote(t, shelf.hint)),
           h(SrcLink, { t, path: '_assistant/notes/书架/' }, t('source.shelf')))
       }
       return h('section', { className: 'lb-card lb-card-wide', style: { '--lb-accent': 'var(--dsw-alias-state-business-primary,#6172f3)' } }, head,

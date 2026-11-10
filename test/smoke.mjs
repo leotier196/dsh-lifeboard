@@ -18,12 +18,15 @@ const tmp = await mkdtemp(path.join(os.tmpdir(), 'lifeboard-test-'))
 process.env.HOME = tmp
 const vault = path.join(tmp, 'vault')
 const routes = {}
+// fixture 日期必须跟"今天"走：写死会在第二天起让 today 断言全挂（2026-11-10 修）
+const now = new Date()
+const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
 async function seed() {
   await mkdir(path.join(vault, '_assistant', 'life', 'log'), { recursive: true })
   await mkdir(path.join(vault, '_assistant', 'notes', '书架'), { recursive: true })
   await mkdir(path.join(vault, '_assistant', 'life', 'private'), { recursive: true })
-  await writeFile(path.join(vault, '_assistant', 'life', 'log', '2026-11-09.md'), `# 2026-11-09
+  await writeFile(path.join(vault, '_assistant', 'life', 'log', `${todayKey}.md`), `# ${todayKey}
 
 ## 健康
 
@@ -148,6 +151,47 @@ check('示例数据有健康卡', r.value.health?.available === true && Number.i
 check('示例数据有资产卡', r.value.finance?.assets?.available === true)
 r = await call('/api/lifeboard/settings', { action: 'save', values: { demoMode: false, vaultRoot: '' } })
 check('关闭示例预览', r.ok === true)
+
+
+// 8) 解析容错：### 标题 / 全角数字 / 睡眠 h；缺文件给明确提示（2026-11-10）
+const vault2 = path.join(tmp, 'vault2')
+await mkdir(path.join(vault2, '_assistant', 'life', 'log'), { recursive: true })
+await writeFile(path.join(vault2, '_assistant', 'TODO.md'), '# 待办\n\n- [ ] 容错测试 | 截止：2026-01-05\n')
+await writeFile(path.join(vault2, '_assistant', 'life', 'log', `${todayKey}.md`), `# ${todayKey}
+
+### 健康
+
+| 指标 | 数值 |
+|:--|:--|
+| 体重 | **７１．５ kg** |
+| 体脂率 | **２２．０%** |
+
+### 睡眠
+
+- 睡了 8h
+`)
+const routes2 = {}
+const ctx2 = {
+  effect(fn) { fn() },
+  get(name) {
+    if (name === 'connection') {
+      return { fetch: { register({ path: p2, fetch }) { routes2[p2] = fetch } } }
+    }
+    return undefined
+  },
+  logger: { info() {}, warn() {}, error() {} },
+}
+await plugin.apply(ctx2, { vaultRoot: vault2, einkEnable: false })
+const call2 = async (p2, body) => {
+  const fn = routes2[p2]
+  const req = new Request('http://localhost' + p2, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}) })
+  return await (await fn(req)).json()
+}
+let v2 = (await call2('/api/lifeboard/board', {})).value
+check('三级标题也能解析体重', v2.health?.weightKg === 71.5)
+check('全角数字归一', v2.health?.vitals?.bodyFat === 22)
+check('睡眠支持 8h 写法', v2.health?.sleepAvgHours === 8)
+check('缺目录给出 no-file 提示（书架）', v2.shelf?.available === false && v2.shelf?.hint?.code === 'no-file')
 
 await rm(tmp, { recursive: true, force: true })
 const failed = results.filter(([, ok]) => !ok)
