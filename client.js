@@ -527,7 +527,9 @@ window.__ModuleLoader__.load({
           h('span', { className: 'lb-big' }, health.weightKg ?? '—'),
           h('span', { className: 'lb-unit' }, 'kg'),
           delta !== null && delta !== undefined
-            ? h('span', { className: 'lb-delta ' + (delta > 0 ? 'lb-delta-up' : delta < 0 ? 'lb-delta-down' : '') }, (delta > 0 ? '▲ ' : delta < 0 ? '▼ ' : '') + fmtSigned(delta))
+            ? h('span', { className: 'lb-delta ' + (delta > 0 ? 'lb-delta-up' : delta < 0 ? 'lb-delta-down' : '') },
+                // 箭头已经表示方向，数字再带负号会变成「▼ −0.3」双符号（2026-11-10 leo 反馈）
+                (delta > 0 ? '▲ ' : delta < 0 ? '▼ ' : '') + (delta === 0 ? '0' : String(Math.abs(delta))))
             : h('span', { className: 'lb-metric-sub' }, t('health.noCompare')),
         health.goal
           ? h('span', { className: 'lb-goal', title: t('health.goal') },
