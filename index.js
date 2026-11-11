@@ -233,9 +233,11 @@ function foldDay(date, markdown) {
 
   const moodSection = [...sections.entries()].find(([k]) => k.startsWith('情绪'))?.[1] ?? ''
   const moodLine = moodSection.split(/\r?\n/).find((l) => l.trim().startsWith('-'))
-  const moodText = moodLine
+  const moodRaw = moodLine
     ? cleanTitle(moodLine.replace(/^-\s*/, '').replace(/（[^）]*(\d{1,2}:\d{2}|口述|实拍)[^）]*）/g, '')).slice(0, 24)
     : null
+  // 「（未记录）/无/—/待记」不是情绪，别算成已打卡（2026-11-11 修）
+  const moodText = moodRaw && !/^(（?未记录）?|无|—|-|待记|暂无)$/.test(moodRaw.trim()) ? moodRaw : null
 
   // 兼容层：表格 / 键值 / 列表 / 英文写法都认；健康段空白时回退到 YAML frontmatter（2026-11-10 M2）
   let healthSource = health
