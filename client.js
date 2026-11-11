@@ -42,6 +42,8 @@ window.__ModuleLoader__.load({
         'settings.extractSummary': '扫了 {days} 份日志，发现 {n} 条可入库数据',
         'settings.extractEmpty': '没发现可抽取的内容（日志里可能还没写结构化数据）',
         'settings.accept': '采纳全部高可信条目',
+        'settings.acceptLow': '仅采纳待确认的',
+        'settings.lowConfidence': '待确认',
         'settings.acceptDone': '已写入 {n} 条（跳过重复 {skip} 条）→ {file}',
         'settings.advanced': '高级：手动指定路径',
         'settings.advancedHint': '一般不用改——上面的自动扫描会把它们填好。',
@@ -161,6 +163,8 @@ window.__ModuleLoader__.load({
         'settings.extractSummary': 'Scanned {days} logs, found {n} items',
         'settings.extractEmpty': 'Nothing extractable found yet',
         'settings.accept': 'Accept all high-confidence items',
+        'settings.acceptLow': 'Accept flagged ones only',
+        'settings.lowConfidence': 'check',
         'settings.acceptDone': 'Wrote {n} items (skipped {skip}) → {file}',
         'settings.advanced': 'Advanced: set paths manually',
         'settings.advancedHint': 'Usually unnecessary — Auto-detect fills these in.',
@@ -300,6 +304,7 @@ window.__ModuleLoader__.load({
 .lb-extract-row{display:flex;align-items:center;gap:7px;font-size:11px;min-width:0}
 .lb-extract-field{flex:none;min-width:120px;color:var(--dsw-alias-label-secondary);font-family:var(--ds-font-family-code,ui-monospace,Menlo,monospace)}
 .lb-extract-val{flex:none;min-width:64px;font-family:var(--ds-font-family-code,ui-monospace,Menlo,monospace)}
+.lb-extract-low{flex:none;font-size:9.5px;padding:0 5px;border-radius:999px;color:var(--dsw-alias-state-warning-primary,#f79009);border:1px solid color-mix(in srgb,var(--dsw-alias-state-warning-primary,#f79009) 40%,transparent)}
 .lb-scan-row{display:flex;align-items:center;gap:7px;min-width:0;font-size:11.5px;padding:2px 0}
 .lb-scan-key{flex:none;font:600 10.5px/1.4 var(--ds-font-family-code,ui-monospace,Menlo,monospace);color:var(--dsw-alias-label-secondary);min-width:74px}
 .lb-textarea{min-height:86px;resize:vertical;font:500 11.5px/1.6 var(--ds-font-family-code,ui-monospace,Menlo,monospace)}
@@ -1089,14 +1094,14 @@ window.__ModuleLoader__.load({
           .catch(() => setExtracted({ items: [], error: '扫描失败' }))
           .finally(() => setExtracting(false))
       }
-      const acceptAll = () => {
-        const items = (extracted?.items ?? []).filter((i) => i.confidence === 'high')
-        if (items.length === 0) return
+      const acceptItems = (items) => {
+        if (!items || items.length === 0) return
         fetch('api/lifeboard/accept', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ items }) })
           .then((r) => r.json())
           .then((v) => setAccepted(v && v.ok ? v.value : { error: (v && v.error && v.error.message) || '写入失败' }))
           .catch(() => setAccepted({ error: '写入失败' }))
       }
+      const acceptAll = () => acceptItems((extracted?.items ?? []).filter((i) => i.confidence === 'high'))
 
       // 没有现成结构？生成一份示例目录照着写（2026-11-10）
       const runScaffold = () => {
@@ -1230,9 +1235,13 @@ window.__ModuleLoader__.load({
                           h('code', { className: 'lb-scan-key' }, i.date ?? ''),
                           h('span', { className: 'lb-extract-field' }, i.kind + '/' + i.field + (i.scope ? ':' + i.scope : '')),
                           h('b', { className: 'lb-extract-val' }, String(i.value) + (i.unit ?? '')),
+                          i.confidence === 'low' ? h('span', { className: 'lb-extract-low' }, t('settings.lowConfidence')) : null,
                           h('code', { className: 'lb-probe-path' }, (i.file ?? '').split('/').pop() + ':' + i.line)))),
                       h('div', { className: 'lb-field-row lb-scan-foot' },
                         h('button', { className: 'lb-refresh', onClick: acceptAll }, t('settings.accept')),
+                        (extracted.items ?? []).some((i) => i.confidence === 'low')
+                          ? h('button', { className: 'lb-toggle', onClick: () => acceptItems((extracted.items ?? []).filter((i) => i.confidence === 'low')) }, t('settings.acceptLow'))
+                          : null,
                         accepted && accepted.added !== undefined
                           ? h('span', { className: 'lb-note' }, t('settings.acceptDone').replace('{n}', String(accepted.added)).replace('{skip}', String(accepted.skipped)).replace('{file}', accepted.file ?? ''))
                           : null,
