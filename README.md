@@ -50,6 +50,10 @@ This plugin adds nothing new. It **reads** the markdown and TSV you already writ
 
 ---
 
+## Example vaults
+
+Three ready-to-copy note styles live in [`examples/`](examples/): Chinese daily diary (health tables), Obsidian template flow (frontmatter + `- 体重:: 69.5`), and an English journal (`weight: 69.5kg`). All three parse with the same plugin — point **Auto-detect** at one and the board fills up.
+
 ## Quick start
 
 ```bash
@@ -333,6 +337,10 @@ MIT. Demo covers are programmatically generated graphics and contain no third-pa
 ![书架 · 情绪 · 资产](docs/screenshot-assets.png)
 
 ---
+
+### 示例 vault
+
+[`examples/`](examples/) 里放了三套可直接照抄的写法：中文日记流（健康表格）、Obsidian 模板流（frontmatter + `- 体重:: 69.5`）、英文 journal（`weight: 69.5kg`）。同一份插件三套都读得出来——把「自动扫描」指过去，看板立刻就有数据。
 
 ### 快速开始
 

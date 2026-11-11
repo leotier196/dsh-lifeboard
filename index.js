@@ -207,9 +207,10 @@ const tableMetric = (sectionText, label) => tableCell(sectionText, label).value
 function foldDay(date, markdown) {
   markdown = normalizeDigits(markdown).replace(/^\uFEFF/, '')
   const sections = sectionsOf(markdown)
-  const health = [...sections.entries()].find(([k]) => k.startsWith('健康'))?.[1] ?? ''
-  const sleep = [...sections.entries()].find(([k]) => k.startsWith('睡眠'))?.[1] ?? ''
-  const sports = [...sections.entries()].find(([k]) => k.startsWith('运动'))?.[1] ?? ''
+  const pickSection = (re) => [...sections.entries()].find(([k]) => re.test(k))?.[1] ?? ''
+  const health = pickSection(/健康|^health$/i)
+  const sleep = pickSection(/睡眠|^sleep$/i)
+  const sports = pickSection(/运动|^exercise$|^sport/i)
 
   // 睡眠：7.5 小时 / 7.5h / 450 分钟 / sleep: 7.5 都认（2026-11-10 兼容层）
   const sleepHit = findMetric(sleep, 'sleep', cfgFieldAliases)
@@ -231,7 +232,7 @@ function foldDay(date, markdown) {
     }
   }
 
-  const moodSection = [...sections.entries()].find(([k]) => k.startsWith('情绪'))?.[1] ?? ''
+  const moodSection = pickSection(/情绪|^mood/i)
   const moodLine = moodSection.split(/\r?\n/).find((l) => l.trim().startsWith('-'))
   const moodRaw = moodLine
     ? cleanTitle(moodLine.replace(/^-\s*/, '').replace(/（[^）]*(\d{1,2}:\d{2}|口述|实拍)[^）]*）/g, '')).slice(0, 24)
@@ -756,7 +757,7 @@ async function diagnose(vaultRoot) {
       try { md = await readFile(latestFile, 'utf8') } catch { /* 读不到就不诊断 */ }
       md = normalizeDigits(md)
       const secs = sectionsOf(md)
-      const healthText = [...secs.entries()].find(([k]) => k.startsWith('健康'))?.[1] ?? ''
+      const healthText = [...secs.entries()].find(([k]) => /健康|^health$/i.test(k))?.[1] ?? ''
       if (!healthText) {
         push('health', 'log-no-section', '日志里没有「## 健康」段', '## 健康\n\n| 指标 | 数值 |', path.relative(vaultRoot, latestFile))
       } else if (tableCell(healthText, '体重').value === null) {
