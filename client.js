@@ -30,6 +30,11 @@ window.__ModuleLoader__.load({
         'panel.format': '文件在，但没读到 {detail}（格式见 README）',
         'panel.vaultMissing': '没找到资料目录（里面要有 TODO.md）—— 去「设置 → 人生看板」指定，或点上面的「自动扫描」',
         'panel.loadFailed': '加载失败',
+        'onboard.title': '第一次用？三步就能看到数据',
+        'onboard.hint': '你不用改笔记格式——插件会去你指定的目录里找。',
+        'onboard.scan': '自动扫描并填入',
+        'onboard.demo': '先看示例数据',
+        'onboard.skip': '以后再说',
         'panel.diagnose': '格式体检',
         'panel.diagnoseHint': '下面这些地方跟插件约定不一致，所以对应卡片读不到数据；按右侧示例改一下即可。',
         'panel.copyTemplate': '复制示例',
@@ -151,6 +156,11 @@ window.__ModuleLoader__.load({
         'panel.format': 'File found, but no {detail} parsed (see README for the format)',
         'panel.vaultMissing': 'Notes folder not found (needs TODO.md) — set it in Settings → Lifeboard, or hit Auto-detect',
         'panel.loadFailed': 'Load failed',
+        'onboard.title': 'First time? Three ways to see data',
+        'onboard.hint': 'No need to change how you write — it looks inside your notes folder.',
+        'onboard.scan': 'Auto-detect and fill in',
+        'onboard.demo': 'Show demo data first',
+        'onboard.skip': 'Later',
         'panel.diagnose': 'Format check',
         'panel.diagnoseHint': 'These spots do not match what the plugin expects, so the cards stay empty. Fix them against the sample on the right.',
         'panel.copyTemplate': 'Copy sample',
@@ -962,6 +972,31 @@ window.__ModuleLoader__.load({
         try { return typeof localStorage !== 'undefined' && localStorage.getItem('lifeboard.finance') === '1' } catch { return false }
       })
 
+      // 首次引导：没配数据源 / 没数据时给三条捷径（2026-11-11 M5）
+      const [onboardOff, setOnboardOff] = useState(() => {
+        try { return typeof localStorage !== 'undefined' && localStorage.getItem('lifeboard.onboarded') === '1' } catch { return true }
+      })
+      const dismissOnboard = () => { try { localStorage.setItem('lifeboard.onboarded', '1') } catch { /* ignore */ } setOnboardOff(true) }
+      const saveSettings = (values) => fetch('api/lifeboard/settings', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'save', values }),
+      }).then((r) => r.json())
+      const onboardScan = () => {
+        fetch('api/lifeboard/scan', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+          .then((r) => r.json())
+          .then((v) => {
+            const best = {}
+            for (const c of (v?.value?.candidates ?? [])) if (!best[c.key] || c.score > best[c.key].score) best[c.key] = c
+            const values = Object.fromEntries(Object.entries(best).map(([k, c]) => [k, c.path]))
+            if (Object.keys(values).length === 0) return null
+            return saveSettings(values)
+          })
+          .then(() => { dismissOnboard(); reload() })
+          .catch(() => {})
+      }
+      const onboardDemo = () => {
+        saveSettings({ demoMode: true }).then(() => { dismissOnboard(); reload() }).catch(() => {})
+      }
+
       const reload = useCallback(() => {
         let alive = true
         setLoading(true)
@@ -1009,6 +1044,17 @@ window.__ModuleLoader__.load({
           data && data.vaultMissing === true ? h('p', { className: 'lb-note lb-warn' }, t('panel.vaultMissing')) : null,
           data && data.demo === true ? h('p', { className: 'lb-note lb-warn' }, '示例数据 · 到「设置 → ' + t('panel.title') + '」关掉预览并填自己的路径') : null,
 
+          (!onboardOff && data && !data.demo && ((data.vaultMissing === true) || (data.health && data.health.available !== true)))
+            ? h('section', { className: 'lb-card lb-onboard', style: { '--lb-accent': 'var(--dsw-alias-brand-primary,#4d6bfe)' } },
+                h('div', { className: 'lb-card-head' },
+                  h('span', { className: 'lb-card-icon', 'aria-hidden': true }, '?'),
+                  h('h3', { className: 'lb-card-title' }, t('onboard.title'))),
+                h('p', { className: 'lb-note' }, t('onboard.hint')),
+                h('div', { className: 'lb-field-row' },
+                  h('button', { className: 'lb-refresh lb-scan-btn', onClick: onboardScan }, t('onboard.scan')),
+                  h('button', { className: 'lb-refresh', onClick: onboardDemo }, t('onboard.demo')),
+                  h('button', { className: 'lb-toggle', onClick: dismissOnboard }, t('onboard.skip'))))
+            : null,
           (Array.isArray(data?.diagnostics) && data.diagnostics.length > 0)
             ? h(DiagnoseBar, { t, items: data.diagnostics })
             : null,
