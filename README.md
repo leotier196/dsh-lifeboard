@@ -143,6 +143,19 @@ Each hit shows its evidence and a **Use** button; **Use all** fills everything a
 
 No structure yet? **Create samples** generates a `lifeboard-示例/` folder you can copy — it never touches your existing files.
 
+## Mining data from your notes
+
+**Settings → Lifeboard → Mine data from my notes** scans the last 30 daily logs and pulls out anything the dashboard can use:
+
+- health: weight, body fat, visceral fat, bone salt, heart rate
+- protein: distinguishes *day total / per-meal total / per-item estimate* (the dashboard only takes the day total)
+- exercise: `ran 5.2 km` etc., units converted
+- mood: from the mood section
+- todos: `- [ ]` / `- [x]`, with done state
+- weight goals, and inline mentions ("weighed 69.9 kg this morning") marked **low confidence**
+
+Every item carries its **source (`file:line`)**. Nothing is written until you accept: accepted rows go to `_assistant/life/derived/YYYY-MM.md`, deduplicated by source, and **your original notes are never modified**. Delete that folder and it's all rolled back.
+
 ## Data formats
 
 The parser expects fixed formats. A mismatch shows "no data" — that is a formatting issue, not a crash.
@@ -413,6 +426,19 @@ dsh plugin --profile <你的 profile> add dsh-lifeboard
 每条都会说明依据，给「用这个」；「全部采用」一次填完，再用「检查这些路径」复核。
 
 还没有结构？点 **生成示例目录**，会在 `lifeboard-示例/` 里建一份可照抄的样例，**不动你现有文件**。
+
+### 从笔记里发现数据
+
+**设置 → 人生看板 → 从笔记里发现数据**：扫最近 30 天的日志，把看板能用的东西捞出来——
+
+- 健康：体重 / 体脂 / 内脏脂肪 / 骨盐率 / 心率
+- 蛋白：区分「日终累计 / 每餐合计 / 分项估算」（看板只取日终）
+- 运动：`慢跑 5.2 km` 这类，单位自动换算
+- 情绪：从情绪段读
+- 待办：`- [ ]` / `- [x]`，带完成状态
+- 体重目标；正文里「今早称了 69.9 公斤」这类会标成**低可信**，需你确认
+
+每条都带**来源（文件:行）**。**不点采纳就不写盘**：采纳后落到 `_assistant/life/derived/YYYY-MM.md`，按来源去重，**原文一个字不改**；删掉那个目录等于全部撤销。
 
 ### 数据格式
 
